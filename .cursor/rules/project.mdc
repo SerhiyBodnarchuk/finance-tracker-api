@@ -1,0 +1,64 @@
+---
+description: Core project context and conventions for finance-tracker-api
+alwaysApply: true
+---
+
+# finance-tracker-api — Project Context
+
+Single-user personal finance REST API built with ASP.NET Core + EF Core + SQL Server.
+
+## What this project is
+
+- Track income and expense transactions
+- Assign categories to transactions
+- Generate reports (weekly, monthly, or any date range) with category breakdowns
+- Export data as JSON or CSV
+- MCP-style context snapshots for deterministic AI-assisted categorization
+
+## What this project is NOT
+
+No authentication, authorization, multi-user support, or frontend UI. Do not add any of these.
+
+## Tech stack
+
+- ASP.NET Core Web API / C#
+- Entity Framework Core (SQL Server for local dev, in-memory for tests)
+- xUnit + FluentAssertions
+- GitHub Actions CI
+
+## Project structure
+
+```
+src/Finance.Api/          — API project
+tests/Finance.Api.Tests/  — xUnit test project
+artifacts/                — agent_log.txt, context_schema.md, example_context_snapshot.json
+.github/workflows/ci.yml  — CI pipeline
+```
+
+## Core domain entities
+
+- `Transaction` — single income or expense entry
+- `Category` — groups transactions (Groceries, Transport, Salary, etc.)
+- `Report` — aggregated totals for a given period
+- `CategoryBreakdown` — per-category totals within a date range
+- `FinanceContextSnapshot` — MCP-style context snapshot
+
+## API conventions
+
+- Route prefix: `/api/`
+- Report endpoints accept `from`/`to` query params (ISO 8601 dates), not hardcoded week offsets
+- Export endpoints: `GET /api/export/json` and `GET /api/export/csv`
+
+## Testing rules
+
+- Use in-memory EF Core provider in tests — no real DB required
+- CI must pass without secrets or local SQL Server
+- Cover aggregation boundary edge cases (period start/end, empty periods, single-entry periods)
+
+## Security — never store or expose
+
+Bank account numbers, card numbers, real personal identifiers, API keys, passwords, tokens, or production secrets.
+
+## AI development log
+
+Log every meaningful AI interaction in `artifacts/agent_log.txt` with: timestamp, model, prompt, suggestion, decision (accepted/rejected), and reason.
