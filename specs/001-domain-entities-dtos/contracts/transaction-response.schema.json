@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://finance-tracker-api.local/contracts/transaction-response.schema.json",
+  "title": "TransactionResponse",
+  "description": "Server-rendered transaction shape. Carries the assigned Id plus the inline category summaries (id + name) in the order the categories are attached.",
+  "type": "object",
+  "additionalProperties": false,
+  "unevaluatedProperties": false,
+  "required": ["id", "timestamp", "description", "amount", "transactionType", "categories"],
+  "properties": {
+    "id": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "examples": ["2026-05-05T18:42:00"]
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "amount": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "transactionType": {
+      "type": "string",
+      "enum": ["Income", "Expense"]
+    },
+    "categories": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/CategorySummary" },
+      "minItems": 1,
+      "description": "Inline category summaries preserving the order in which categories were attached to the transaction."
+    }
+  },
+  "$defs": {
+    "CategorySummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "unevaluatedProperties": false,
+      "required": ["id", "name"],
+      "properties": {
+        "id": { "type": "integer", "minimum": 1 },
+        "name": { "type": "string", "minLength": 1 }
+      }
+    }
+  },
+  "examples": [
+    {
+      "id": 3,
+      "timestamp": "2026-05-05T18:42:00",
+      "description": "Silpo Market",
+      "amount": 32.10,
+      "transactionType": "Expense",
+      "categories": [
+        { "id": 2, "name": "Groceries" },
+        { "id": 6, "name": "Health Food" }
+      ]
+    }
+  ]
+}

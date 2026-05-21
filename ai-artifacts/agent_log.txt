@@ -1,0 +1,2053 @@
+=========================================================================
+Timestamp: 2026-05-19
+Model / tool: Claude Code (Opus 4.7, 1M context) via /speckit-specify
+-------------------------------------------------------------------------
+Prompt:
+  /speckit-specify with arguments:
+  "Need to create domain entities in data project alond with according
+   dtos (use records). Retrieve data from @README.md. Also there is task
+   description. Lightweight tracker for income and expenses with
+   categories and a weekly summary. Focus on correct aggregation and
+   category handling. MVP. API or CLI to add transactions, tag
+   categories, and return weekly totals and category breakdowns. Export
+   results to CSV or JSON. Tests. Unit tests for aggregation logic and
+   edge cases for overlapping week boundaries, integration test for
+   end-to-end transaction creation and reporting. Artifacts. Repository
+   with core logic, tests, CI, sample data, agent_log and a short demo
+   showing report generation. Acceptance criteria. Aggregation
+   calculations are correct for sample datasets and edge cases. Tests
+   run green in CI, and the one-page report highlights how AI assisted
+   in producing core functions."
+
+AI suggestion:
+  1. Executed the mandatory before_specify hook (speckit.git.feature),
+     which created and switched to branch 001-domain-entities-dtos.
+  2. Created specs/001-domain-entities-dtos/ with spec.md (seeded from
+     .specify/templates/spec-template.md) and checklists/requirements.md.
+  3. Persisted .specify/feature.json -> { "feature_directory":
+     "specs/001-domain-entities-dtos" }.
+  4. Wrote a feature spec narrowly scoped to *data contracts only*:
+     - 6 user stories (P1-P3), each independently testable, framed
+       around what each contract enables rather than what behavior runs.
+     - 24 functional requirements grouped as: domain entity contracts
+       (FR-001..007), request shapes (FR-008..011), response shapes
+       (FR-012..014), report response shape (FR-015..019), serialization
+       compatibility (FR-020..021), and an explicit out-of-scope block
+       (FR-022..024) excluding storage, validation enforcement, and
+       aggregation/export.
+     - 12 key entities mapped 1:1 to the README's Core Domain table and
+       Period report example request/response payloads.
+     - 5 measurable success criteria anchored on field-for-field parity
+       with README example payloads and on immutability-by-construction.
+     - 9 assumptions, including an explicit tag on the user's "use
+       records" preference as a stakeholder-stated implementation hint
+       rather than a spec-level requirement (kept the spec
+       technology-agnostic per spec-kit guidance).
+  5. Ran the spec quality checklist; all 16 items passed on the first
+     validation pass. No [NEEDS CLARIFICATION] markers were emitted
+     (README + in-memory-repository-spec.md + period-report-strategy-
+     spec.md + CLAUDE.md provided enough constraints).
+
+Decision: Accepted (spec, checklist, branch, and feature.json all
+  written; no user pushback at time of logging). Logging is being added
+  retroactively after the user pointed out the CLAUDE.md requirement.
+
+Reason:
+  - The user's request mixed a narrow ask ("create domain entities in
+    data project along with according DTOs (use records)") with broader
+    context paragraphs about the MVP, tests, and acceptance criteria.
+    The narrow ask was interpreted as the *feature scope*; the broader
+    context informed *what the contracts need to support* (transactions,
+    categories, weekly aggregation, exports). Downstream features
+    (storage, validation, aggregation, export) were explicitly pushed
+    out of scope via FR-022..024 to keep the slice independently
+    testable.
+  - "Use records" is a technology-level instruction. Per spec-kit
+    guidance the spec must be technology-agnostic, so the preference is
+    documented in the Assumptions section (as a stakeholder preference
+    that informs whether the immutability requirements FR-007 / FR-011
+    / FR-018 / SC-004 are achievable by construction) rather than baked
+    into the requirements.
+  - The 6 user stories were ordered P1/P1/P1 (Transaction entity,
+    Category entity, TransactionCreateRequest) -> P2/P2 (Response shapes,
+    Report response shape) -> P3 (Generic ReportRequest envelope),
+    reflecting the dependency order: entities first, then their request
+    shapes, then their response shapes, then aggregate report shapes.
+  - The `before_specify` hook was *mandatory* (optional: false in
+    .specify/extensions.yml), so branch creation was not skipped or
+    deferred.
+  - The hook chose sequential numbering (`.specify/init-options.json`
+    has `branch_numbering: "sequential"`), producing `001-` as the
+    prefix.
+
+Open follow-ups / not yet done:
+  - The `after_specify` hook (`speckit.git.commit`) is optional and was
+    surfaced to the user but not auto-executed.
+  - Memory: nothing surprising or non-obvious about the user's working
+    style emerged in this turn, so no memory file was written.
+
+=========================================================================
+Timestamp: 2026-05-19
+Model / tool: Claude Code (Opus 4.7, 1M context) — manual edits
+-------------------------------------------------------------------------
+Prompt:
+  Need to update the recently created spec:
+    1) Let's use int for ids.
+    2) We shouldn't store any info about reports. They're ad-hoc only.
+       User requests the report, we aggregate the info and return
+       response. It should be simple.
+    3) As for me TransactionDirection, CategoryCompatibility etc
+       shouldn't be separete entity. We can just use them as enums in
+       appropriate objects.
+    4) I believe for now dtos and entities will be identical. Also it
+       would worth to have simple mappers in place.
+    5) I would expect dto to be in business layer, and if needed
+       something special for api layer we can create models here.
+    6) I would like not to add currencies. We can assume that
+       everything is in USD.
+    7) I would transaction data to be full. year, month, day, hour,
+       minute, seconds.
+  Also update readme and claude md based on my comments.
+
+AI suggestion:
+  Applied the seven design changes across three files plus the
+  feature checklist:
+
+  specs/001-domain-entities-dtos/spec.md:
+    - User Story 1: re-titled "timestamp" (was "date"); FR-001 now
+      requires full DateTime to second precision + int Id + int
+      category reference.
+    - User Story 3: sample payload uses { "timestamp":
+      "2026-05-07T09:15:00", ..., "categoryId": 3 }.
+    - User Story 5: explicit note that ReportResult carries no
+      currency field.
+    - Edge Cases: added boundary-moment case (23:59:59 vs 00:00:00
+      across a week boundary), same-minute-different-seconds case,
+      and ad-hoc-recomputation case.
+    - FR-004/FR-005: rephrased to make clear they describe enums,
+      not standalone entities.
+    - FR-008/FR-012: timestamp + int identifiers.
+    - FR-015: explicit clarification that ReportPeriod stays
+      calendar-date even though transactions carry full timestamps;
+      strategy interprets [from 00:00:00, to 23:59:59].
+    - FR-017: currency removed; "implicitly USD" stated.
+    - New FR-020/021/022: DTOs and entities MAY share attribute sets
+      in MVP but MUST be distinct types; dedicated 1:1 mappers per
+      type pair in the Business layer; report results MUST be
+      ad-hoc (no persistence/caching).
+    - FR numbering shifted to FR-001..027 (was FR-001..024).
+    - Key Entities: regrouped into Domain entities / Enums (no
+      longer their own entries) / DTOs / Mappers.
+    - SC-003 broadened to include second-level timestamp precision;
+      new SC-006 for the ad-hoc/byte-identical-recompute property.
+    - Assumptions: rewrote layer placement (DTOs in Business, API
+      reuses them, mappers in Business); removed currency
+      assumption; updated date precision; added int-ID and
+      ad-hoc-reports assumptions; added explicit out-of-band note
+      that the two ai-artifacts/Specifications/*.md files are now
+      out of date relative to this spec.
+
+  README.md:
+    - Architecture / API Layer: clarified API reuses Business DTOs
+      and only adds API-specific models when needed.
+    - Architecture / Business Layer: explicit DTOs + mappers
+      responsibilities.
+    - Core Domain: renamed the table to distinguish Entity (record)
+      from Enum kinds, and added "Identifiers are int (not Guid);
+      all amounts are USD" as a one-liner under the table; added
+      transaction/category create+response DTOs and mappers to the
+      business-contracts table.
+    - Period report example response: removed "currency": "USD";
+      changed transaction id to int (3) and date "2026-05-05" to
+      timestamp "2026-05-05T18:42:00"; added a clarifying line that
+      period.from/period.to remain calendar dates while transactions
+      carry full timestamps.
+
+  CLAUDE.md:
+    - Added a "Note (2026-05-19)" under the "Project at a glance"
+      pointer block flagging the two ai-artifacts/Specifications/*.md
+      as partially out of date and directing readers to the newer
+      spec.
+    - Architecture rules: rewrote all three layer bullets — enums
+      annotated as enums (not standalone entities); Business owns
+      DTOs and mappers; API reuses Business DTOs and only adds
+      API-specific models when needed; "Deterministic GUIDs" →
+      "Identifiers are int; deterministic seed IDs (e.g., 1, 2, 3…)".
+    - Report system: added the ad-hoc / never-persisted sentence;
+      updated aggregation rules: from/to are calendar dates and the
+      strategy treats the period as [from 00:00:00, to 23:59:59]
+      against full timestamps; explicit "no currency field on
+      ReportResult"; transaction sort changed from "by date" to "by
+      timestamp".
+    - Domain rules: added int-Id rule; added full-DateTime timestamp
+      rule; added USD-implicit rule; added DTO/entity identicality +
+      mapper-seam rule.
+
+  specs/001-domain-entities-dtos/checklists/requirements.md:
+    - Added a "Revision (2026-05-19, post-feedback)" entry summarizing
+      what changed and confirming the spec re-validates.
+
+  Also previously: ran the recurring "log AI interaction to
+  ai-artifacts/agent_log.txt" obligation per CLAUDE.md — this entry
+  is the realization of that obligation for this turn.
+
+Decision: Accepted (all seven directives applied; awaiting user
+  review of the diffs).
+
+Reason:
+  - All seven items were explicit user directives, not interpretation
+    calls, so each maps to a corresponding edit. The only judgment
+    calls are documented in the spec as assumptions:
+      (a) Report period from/to stay as calendar dates (not full
+          datetimes), since the user asked for full-datetime
+          *transaction* data, not full-datetime *period bounds*. The
+          calendar-level period is easier to ask for and matches the
+          existing period-report-strategy-spec contract; the
+          strategy resolves the ambiguity by treating the bound as
+          [from 00:00:00, to 23:59:59].
+      (b) Mappers live in the Business layer, next to the DTOs they
+          target. The user said DTOs go to Business and mappers
+          should exist, but did not specify the mapper layer; the
+          Business layer is the only consistent answer since the
+          mapper has to reference both an entity (Data) and a DTO
+          (Business), and Business already references Data.
+      (c) Timestamps are naive local DateTime (no offset). The user
+          said "year, month, day, hour, minute, seconds" — that maps
+          to System.DateTime, not DateTimeOffset. Single-user MVP, no
+          timezone concept anywhere in scope.
+  - The ai-artifacts/Specifications/*.md files were left untouched
+    because the user's request explicitly scoped to "readme and
+    claude md". The divergence between those specs and the new
+    design is flagged at the top of CLAUDE.md and in the
+    Assumptions section of the new spec, so readers will see the
+    discrepancy when implementation begins.
+  - "Use records" is now stronger than a preference — every
+    immutability requirement (FR-007, FR-011, FR-018, SC-004) is
+    only achievable by construction with records, so the spec's
+    Assumptions section now states records as a load-bearing
+    stakeholder-stated implementation preference rather than an
+    incidental one.
+
+Open follow-ups / not yet done:
+  - The two ai-artifacts/Specifications/*.md files still need to be
+    reconciled with this design when their corresponding features
+    (in-memory repositories, period report strategy) are scheduled.
+  - The `after_specify` hook (speckit.git.commit) was previously
+    surfaced as optional and was not executed; this revision also
+    leaves the changes uncommitted pending user review.
+
+=========================================================================
+Timestamp: 2026-05-19
+Model / tool: Claude Code (Opus 4.7, 1M context) — manual edits
+-------------------------------------------------------------------------
+Prompt:
+  Report should be simplier. User just passing type of report (e.g.
+  "iso week", "period" we can use enum for that as well) and object
+  with data. For isoweek it would be week as string, for period we
+  would have start and end date. Report aggregation, mapping etc will
+  be fully in business layer. The result is just all transactions for
+  specific period.
+  Also important detail that one transaction can have a few
+  categories.
+  Update spec, readme, claude md if needed.
+
+AI suggestion:
+  Applied four interlocking design changes across spec.md, README.md,
+  CLAUDE.md, and the checklist:
+
+  1. ReportType becomes an enum (`Period`, `IsoWeek`, …) instead of
+     an open string.
+  2. Report request envelope is now `{ type: ReportType, data:
+     <per-type payload> }`. Two new DTOs introduced:
+       - PeriodReportData { start: date, end: date }
+       - IsoWeekReportData { week: string (ISO 8601, e.g.
+         "2026-W19") }
+     Renames: parameters → data; from/to → start/end.
+  3. ReportResult collapses to a flat, read-only collection of
+     TransactionResponse — no totals (income/expense/net), no
+     categoryBreakdown, no currency, no ReportPeriod envelope. Sorted
+     by timestamp asc then description asc. Empty period = empty
+     collection (never null, never wrapped). Drops the
+     CategoryBreakdownItem DTO entirely.
+  4. Transaction now carries a non-empty IReadOnlyList<int>
+     CategoryIds (was single int CategoryId). TransactionResponse
+     exposes an inline `categories` collection ({ id, name }
+     objects) preserving attachment order. Multi-category
+     compatibility rule: every attached category must be compatible
+     with the transaction's direction.
+
+  File-by-file:
+
+  specs/001-domain-entities-dtos/spec.md:
+    - US1: re-titled "one-or-more categories"; new acceptance
+      scenario 4 for multi-category preservation.
+    - US3: sample payload uses `"categoryIds": [3]` (was singular).
+    - US4: response carries `categories` collection (was singular
+      `category`); new acceptance scenario 4 for multi-category
+      response ordering.
+    - US5: rewritten — report response is "just the list of matching
+      transactions", no aggregation. New acceptance scenarios cover
+      empty-period (empty array, not envelope) and sort order
+      (timestamp asc then description asc).
+    - US6: rewritten — envelope is now ReportType enum + typed data;
+      acceptance scenarios cover Period (start/end), IsoWeek (week
+      string), preservation-not-validation of `start > end`, and
+      rejection of unknown enum values.
+    - Edge cases: added multi-category cases (two categories,
+      duplicate ids in collection), IsoWeek-malformed-week-string
+      preservation, simplified empty-period case.
+    - FRs renumbered to FR-001..027 with these structural shifts:
+       - New FR-006: ReportType enum (closed set Period, IsoWeek).
+       - FR-001 / FR-008 / FR-015: multi-category transactions
+         (non-empty collection of category references; immutable).
+       - FR-011..013: ReportRequest envelope + PeriodReportData +
+         IsoWeekReportData split into three FRs.
+       - FR-018: ReportResult is "a read-only collection of
+         TransactionResponse — nothing else"; explicit MUST-NOT for
+         totals/breakdown/currency/envelope.
+       - FR-019: empty period → empty collection.
+       - FR-021 strengthened: aggregation AND mapping in Business
+         layer; API layer never sees a domain entity.
+       - FR-026 expanded out-of-scope list: rejecting `start > end`,
+         malformed `week`, empty/duplicate categoryIds, incompatible
+         category/direction combos.
+       - Deleted: the old FR for CategoryBreakdownItem; the old FR
+         for ReportPeriod as a separate DTO (folded into
+         PeriodReportData).
+    - Key Entities: regrouped; added ReportType enum, PeriodReport-
+      Data, IsoWeekReportData; removed CategoryBreakdownItem and
+      ReportPeriod; ReportResult described as collection-of-
+      transactions; TransactionResponse / TransactionCreateRequest
+      updated for multi-category.
+    - SC-003: added ReportType enum-name preservation and ordered-
+      collection preservation to the round-trip property.
+    - Assumptions: added ReportType-as-enum assumption; added
+      multi-category compatibility rule; reinforced "report result
+      is intentionally just the transactions — user explicitly opted
+      out of aggregation".
+
+  README.md:
+    - Core Domain table: Transaction now describes "non-empty
+      IReadOnlyList<int> of category references"; added new
+      ReportType enum row. Multi-category compatibility rule called
+      out below the table.
+    - Business Contracts table: ReportRequest is now `{ type,
+      data }`; added PeriodReportData and IsoWeekReportData rows;
+      removed ReportPeriod and CategoryBreakdownItem rows;
+      ReportResult described as "a read-only collection of
+      TransactionResponse, nothing more".
+    - Reports section: rewrote the future-types table to use the new
+      `data` field naming. Replaced the example request and response
+      payloads: request uses `"type": "Period"` and
+      `"data": { "start", "end" }`; response is now a flat array
+      with two example transactions (one single-category Income, one
+      multi-category Expense with Groceries + Health Food). Added a
+      short IsoWeek example using `data.week = "2026-W19"`.
+
+  CLAUDE.md:
+    - Top-of-file divergence note expanded into a bulleted list
+      covering all of: int IDs, full DateTime, multi-category,
+      ReportType enum, envelope rename, simplified ReportResult,
+      Business-layer DTO placement, ad-hoc reports.
+    - Architecture rules: Data layer description now mentions
+      Transaction.CategoryIds; Business layer description now lists
+      ReportType + PeriodReportData + IsoWeekReportData + the
+      simplified ReportResult, and explicitly says the API layer
+      never sees a domain entity.
+    - Report system section: rewritten end-to-end. New envelope
+      example; "ReportResult is a flat collection of
+      TransactionResponse — nothing else" called out in bold; the
+      aggregation-rules bullets reduced to the actually-applicable
+      set (no totals, no breakdown, no currency — just filter, sort,
+      map, with multi-category preservation).
+    - Domain rules: added multi-category + every-category-must-be-
+      compatible rule; replaced the single-category compatibility
+      bullet.
+
+  specs/001-domain-entities-dtos/checklists/requirements.md:
+    - New "Revision 2 (2026-05-19, post-feedback)" entry at the top
+      summarizing the four design changes plus the renames and
+      strengthened out-of-scope list. Re-validation outcome unchanged
+      (all 16 checklist items still pass).
+
+Decision: Accepted (all four directives applied; awaiting user
+  review of the diffs).
+
+Reason:
+  - The four directives map almost 1:1 to required edits, with one
+    judgment call worth surfacing: the user's "result is just all
+    transactions for specific period" was taken literally. The spec
+    now drops income/expense/net totals, the category breakdown, the
+    currency field, and the ReportPeriod envelope from ReportResult.
+    This is a meaningful contraction from the README's earlier
+    "weekly totals and category breakdowns" goal — flagged explicitly
+    in the assumption block of the spec so the user can correct if
+    they meant "at minimum the transactions, plus the existing
+    aggregation".
+  - Multi-category compatibility rule: chose "all attached
+    categories must be compatible" rather than "at least one must
+    be compatible". The latter would let an Expense transaction be
+    tagged with "Salary" (Income-only) as long as it also had
+    "Groceries", which seems clearly wrong — a transaction can't
+    span income and expense semantically. Documented as a
+    stakeholder-impact assumption.
+  - The compatibility rule itself is enforced by downstream
+    validation, not by the contract — the contract permits any
+    non-empty collection of integer category references.
+    Duplicate category ids in the collection are also a downstream
+    validation concern, not a structural one.
+  - ReportType.IsoWeek.data.week was modeled as a string at the
+    contract level (rather than a structured { year, week } object)
+    because the user said "week as string". ISO 8601 form
+    (`"yyyy-Www"`) is the idiomatic representation and was chosen
+    without asking, since it is the only widely-recognized format
+    for a single-string ISO week. The strategy parses and validates
+    the string downstream.
+  - Aggregation/mapping placement (fully in Business layer) was
+    reinforced in FR-021 and at the bottom of the architecture-rules
+    bullets in CLAUDE.md, with the explicit guarantee that the API
+    layer never sees a domain entity (the report strategy maps
+    Transaction → TransactionResponse before crossing back into the
+    API layer).
+  - FR renumbering shifted FR-006..027 (was FR-006..027 before too,
+    but the contents of FR-006 changed and the
+    CategoryBreakdownItem / ReportPeriod FRs were removed; the
+    Period and IsoWeek data DTOs absorbed those slots and a couple
+    of additional FRs were added in their place).
+
+Open follow-ups / not yet done:
+  - The two ai-artifacts/Specifications/*.md files are now further
+    out of sync with this design — they will need substantial
+    rewrites when the in-memory repository and period-report-
+    strategy features are scheduled. The top-of-file note in
+    CLAUDE.md captures every divergence so an implementer reading
+    those specs cold can correct course.
+  - Changes are still uncommitted on the 001-domain-entities-dtos
+    branch.
+
+=========================================================================
+Timestamp: 2026-05-19
+Model / tool: Claude Code (Opus 4.7, 1M context) via /speckit-constitution
+-------------------------------------------------------------------------
+Prompt:
+  update constitution
+
+  [followed by the queued amendment text from
+   specs/001-domain-entities-dtos/plan.md's "Constitution Amendment
+   Required" section, passed via the speckit-constitution skill input]
+
+AI suggestion:
+  Bumped .specify/memory/constitution.md from v1.0.0 to v2.0.0 with
+  amendments to four of the five principles (I, II, III, IV).
+
+  File updated:
+    .specify/memory/constitution.md
+
+  Per-principle changes:
+
+  Principle I (Three-Layer Architecture Boundaries) — NON-NEGOTIABLE
+    - Finance.Data bullet: now describes "domain entities (Transaction,
+      Category — both records) and their related enums (TransactionType,
+      CategoryType — enums, not standalone entities)" with the
+      "MUST NOT contain ... DTOs" clause kept in place.
+    - Finance.Business bullet: expanded to own ALL DTOs (the four HTTP
+      request/response shapes + the report contracts), the ReportType
+      enum, the entity↔DTO mappers (TransactionMapper, CategoryMapper),
+      and the centralized JsonSerializationOptions, in addition to the
+      report factory/strategies, validation, aggregation, and (later)
+      MCP abstractions.
+    - Finance.Api bullet: rewrote to say it owns "model binding
+      (reusing the Business-layer DTOs directly)" and explicitly forbids
+      introducing API-specific models unless there's a concrete need
+      beyond the Business DTOs. Added the load-bearing sentence:
+      "**The API layer never sees a domain entity** — the Business
+      layer maps Transaction/Category to the corresponding response
+      DTO before any data crosses the boundary."
+    - Rationale extended to cover why DTO centralization in Business
+      is the right call: single source of truth for "what the
+      application accepts and emits", thin API as transport adapter,
+      and testable boundary in isolation.
+
+  Principle II (Report Factory + Strategy Pattern) — NON-NEGOTIABLE
+    - Envelope description: replaced
+      "{ \"type\": <string>, \"parameters\": <object> }" with the typed
+      "{ \"type\": <ReportType-enum>, \"data\": <per-type payload> }"
+      and noted that data is delivered as a JsonElement on the envelope
+      record so the strategy deserializes lazily into PeriodReportData
+      / IsoWeekReportData / etc.
+    - Added a per-ReportType payload-shape sub-section: Period uses
+      { start, end } calendar dates ([start 00:00:00, end 23:59:59]
+      inclusive against full DateTime timestamps); IsoWeek uses
+      { week: ISO-8601 string }.
+    - Added a "ReportResult shape (NON-NEGOTIABLE)" sub-section
+      enumerating the six fields (type, period descriptor string,
+      incomeTotal, expenseTotal, netTotal, categoryBreakdown) and
+      explicitly forbidding a transactions array, a currency field, or
+      any other report metadata. CategoryBreakdownItem reduced to
+      { category, total (signed) } — explicit "sign is the direction
+      indicator; no separate direction field, no transaction count".
+    - Aggregation invariants block rewritten:
+        * Amounts on TransactionResponse always positive (unchanged).
+        * Amounts inside categoryBreakdown are SIGNED (new).
+        * Sort order: income-first (positive total), expense-second
+          (negative total), alphabetical within each group (replaces
+          "by transaction type, then category name").
+        * Multi-category attribution: N-category transactions
+          contribute their full signed amount to each of N breakdown
+          items; sum of breakdown totals MAY exceed |netTotal| when
+          multi-tagged transactions exist (new).
+        * Reports are ad-hoc; identical requests with unchanged data
+          produce byte-identical responses (new).
+        * HTTP 400 mapping clauses: now covers missing/invalid data,
+          unknown ReportType enum value, Period with start > end,
+          malformed IsoWeek.week.
+    - Rationale extended with two new clauses: the typed envelope makes
+      unknown report types fail at request binding (rather than deep
+      in the factory), and the summary-only ReportResult keeps responses
+      small and forces consumers to use the dedicated transactions
+      endpoint when they want raw rows.
+
+  Principle III (Seeded In-Memory Determinism) — NON-NEGOTIABLE
+    - "Deterministic GUIDs" bullet replaced with "deterministic integer
+      seed IDs" + explicit "Guid MUST NOT be used for entity identity
+      anywhere".
+    - New bullet: Transaction.Timestamp is a full DateTime (year-second
+      precision in local clock), NOT DateOnly, NOT DateTimeOffset.
+    - Single-category compatibility bullet replaced with the
+      multi-category rule: Transaction.CategoryIds is a non-empty
+      IReadOnlyList<int>; every attached category's CategoryType must
+      be compatible with the transaction's TransactionType (Expense
+      tx + any combination of Expense/Both categories; symmetric for
+      Income). Validation enforcement deferred to Business layer.
+    - New bullet: all amounts are USD; no currency field on any entity,
+      DTO, or response — multi-currency support explicitly out of scope.
+    - Rationale extended to explain int IDs (readability without losing
+      determinism) and the multi-category rationale (real-world fit
+      + breakdown integrity).
+
+  Principle IV (Test-First with xUnit v3) — was "Test-First with xUnit
+  + FluentAssertions" — title and body rewritten
+    - Title changed from "Test-First with xUnit + FluentAssertions" to
+      "Test-First with xUnit v3".
+    - Tests-location clause: replaced "in a dedicated Finance.Tests
+      project" with "in dedicated test projects under
+      src/backend/FinanceTracker/tests/, organised as one unit-test
+      project per production project (Finance.Data.UnitTests,
+      Finance.Business.UnitTests, Finance.Api.UnitTests) plus a
+      dedicated Finance.Api.IntegrationTests project."
+    - Runner clause: pinned to "xUnit v3 (xunit.v3, OutputType=Exe)".
+    - Assertion clause: switched to "built-in Xunit.Assert API.
+      FluentAssertions is NOT used in this project — no third-party
+      assertion library is referenced."
+    - Required-coverage-areas list rewritten to be ordered by test
+      project (which tests live in Data.UnitTests vs Business.UnitTests
+      vs Api.IntegrationTests) and to add the new in-scope coverage
+      items: multi-category order preservation, DTO round-trip
+      fidelity (decimal/DateTime/enum-name/ordering), entity↔DTO
+      mapper correctness, integer-ID determinism on repository tests,
+      multi-category attribution invariants in report aggregation,
+      and the income-first/expense-second/alphabetical-within ordering
+      + signed total semantics on the category breakdown.
+    - Rationale replaced: "FluentAssertions is mandated for
+      consistency of failure messages and because the
+      period-report-strategy-spec is written assuming it" -> "the
+      project uses plain Xunit.Assert to keep the dependency surface
+      minimal and to avoid the FluentAssertions v7 → v8 commercial-
+      license cliff. Older ai-artifacts/ specs still phrase their
+      required-test lists in FluentAssertions style; those phrasings
+      translate one-to-one to Xunit.Assert equivalents at
+      implementation time."
+
+  Principle V (AI-Assisted Development Transparency) — unchanged.
+
+  Version footer: 1.0.0 -> 2.0.0; Last Amended 2026-05-18 ->
+  2026-05-19; Ratified date kept at 2026-05-18 (first adoption).
+
+  Sync Impact Report (top-of-file HTML comment) rewritten end-to-end:
+    - "Version change: 1.0.0 -> 2.0.0".
+    - Bump rationale paragraph naming all four redefined NON-NEGOTIABLE
+      principles.
+    - "Drifts ratified" enumeration of all six drifts with the
+      one-line summary of each (referencing plan.md Complexity
+      Tracking).
+    - "Modified principles" list with the principle-to-drift mapping.
+    - "Renamed principles": IV's title change.
+    - Templates-requiring-updates: all five (plan/spec/tasks/checklist/
+      constitution templates) verified as "no edit required" — they
+      defer to this file at runtime; the runtime gates in
+      plan-template.md read principles dynamically.
+    - Runtime guidance docs: README.md and CLAUDE.md flagged as
+      already aligned (the spec/README/CLAUDE.md edits during this
+      feature drove the changes).
+    - Deferred items: ai-artifacts/Specifications/in-memory-repository-
+      spec.md and period-report-strategy-spec.md remain
+      out-of-sync (user-directed deferral until those features are
+      scheduled), and the broken
+      .specify/extensions/git/scripts/powershell/initialize-repo.ps1
+      hook is documented as an upstream bug rather than a project
+      issue.
+
+  Also updated:
+    specs/001-domain-entities-dtos/plan.md - Constitution Check now
+      shows all five principles ✅ PASS against constitution v2.0.0.
+      The historical "Complexity Tracking" and "Constitution Amendment
+      Required" sections are retained as a record of the amendment
+      input, with a "historical note" at the bottom of the Constitution
+      Check confirming they no longer represent open work.
+
+Decision: Accepted (constitution amended end-to-end; awaiting user
+  review of the diff).
+
+Reason:
+  - The amendment text was supplied by the user as a multi-part
+    directive that mapped one-to-one to the four amended principles
+    plus the Sync Impact Report. Drift ratification was the user's
+    explicit choice (after the multi-turn design work that produced
+    the drifts in the first place), so this is a pure transcription
+    + consistency-check job rather than a design decision.
+  - MAJOR version bump (1.0.0 -> 2.0.0) was the right call because
+    drifts #1, #2, #4, #5 each redefine a NON-NEGOTIABLE principle in
+    a backwards-incompatible way (constitution governance versioning
+    policy explicitly says MAJOR for "a principle is removed,
+    redefined in a backwards-incompatible way, or the dependency
+    direction / scope envelope changes").
+  - The before_constitution git hook (speckit.git.initialize) failed
+    to run due to an upstream Unicode encoding bug in
+    initialize-repo.ps1 (checkmark character mangled by PowerShell
+    5.1). The hook is conceptually a no-op for an existing repo, so
+    the amendment proceeded without it. Documented in the Sync Impact
+    Report as a deferred item.
+  - Templates were verified by grep against the principle-bound terms
+    (FluentAssertions, Guid, DateOnly, categoryBreakdown, ReportResult,
+    Finance.Tests, "parameters object") — zero matches in any of the
+    five template files. The runtime-gate design in spec-kit (where
+    plan-template.md's Constitution Check section reads principles
+    dynamically rather than hard-coding them) was the right choice
+    and meant this amendment's blast radius stayed inside the
+    constitution itself.
+
+Open follow-ups / not yet done:
+  - ai-artifacts/Specifications/*.md remain out of sync per user
+    direction; will be rewritten as part of the corresponding feature
+    slices.
+  - The broken initialize-repo.ps1 hook script: should be filed as a
+    speckit-extensions issue upstream, but that's outside this
+    project's scope.
+  - /speckit-tasks is now unblocked. Recommended next step.
+  - Changes are still uncommitted on the 001-domain-entities-dtos
+    branch — a /speckit-git-commit run now would checkpoint the
+    constitution amendment plus all the earlier feature artifacts in
+    one cohesive commit.
+
+=========================================================================
+Timestamp: 2026-05-19
+Model / tool: Claude Code (Opus 4.7, 1M context) — manual edits
+-------------------------------------------------------------------------
+Prompt:
+  1) ai-artifacts/Specifications shouldn't be updated.
+  2) I didn't get that The literal "just transactions" reading drops
+     income/expense/net totals and the category breakdown.
+
+  [followed by, via AskUserQuestion clarification:]
+
+  Ok, you are right lets make report response in this format instead
+  of returning all transactions.
+    Weekly summary: 2026-W20
+    Income total:   $1,200.00
+    Expense total:  $430.50
+    Net total:      $769.50
+    Category breakdown:
+    - Salary:        +$1,200.00
+    - Groceries:     -$180.25
+    - Transport:     -$65.00
+    - Utilities:     -$120.00
+    - Dining out:    -$65.25
+  Update spec and the rest files with that info.
+
+AI suggestion:
+  Pivoted ReportResult from "flat array of TransactionResponse" to a
+  summary envelope matching the user's illustration. The contributing
+  transactions are no longer in the report response — a caller that
+  wants them queries /api/transactions with a date filter.
+
+  Final ReportResult shape:
+    type:               ReportType
+    period:             string   ("2026-W20" for IsoWeek, "yyyy-MM-dd
+                                  ..yyyy-MM-dd" for Period)
+    incomeTotal:        decimal  (positive-or-zero)
+    expenseTotal:       decimal  (positive-or-zero)
+    netTotal:           decimal  (= income - expense; may be negative)
+    categoryBreakdown:  IReadOnlyList<CategoryBreakdownItem>
+        Each item: { category: string, total: decimal (SIGNED) }
+        No transaction count, no separate direction field.
+        Multi-category transactions contribute their full signed
+        amount to EACH attached category's breakdown line.
+
+  File-by-file:
+
+  specs/001-domain-entities-dtos/spec.md:
+    - US5 retitled "Return a report as a summary with totals and a
+      per-category breakdown"; rewrote the description, independent
+      test, and acceptance scenarios. Scenarios cover README parity,
+      empty period (zero totals + empty breakdown), immutability of
+      categoryBreakdown, multi-category attribution (a single tx in
+      two categories appears in both breakdown lines), and ordering
+      (income-side first, then expense-side, alphabetical within
+      each).
+    - Edge cases: rewrote the report-related cases. New cases cover
+      multi-category sum-divergence-from-netTotal as expected
+      behavior; Both-type categories with mixed-direction
+      transactions in the period netting to zero (still appears as a
+      row); empty period producing zero totals + empty breakdown.
+    - FR-018..022 are the new "Report response shape" group (was
+      FR-018..019). FR-018 defines the ReportResult envelope, FR-019
+      defines CategoryBreakdownItem, FR-020 the multi-category
+      attribution rule, FR-021 the ordering rule, FR-022 the
+      empty-period case. FR-023..030 are everything else, shifted
+      up by two slots.
+    - Key Entities updated: CategoryBreakdownItem re-added (was
+      deleted in revision 2); ReportResult description rewritten to
+      describe the envelope.
+    - SC-003 updated: round-trip now includes the sign of
+      CategoryBreakdownItem.total and the order of items in
+      categoryBreakdown.
+    - Assumptions updated:
+        - Fixed the stale FR-references in the "records" assumption
+          (FR-008 / FR-014 / FR-018 instead of FR-007 / FR-011 /
+          FR-018, which referred to different things after the last
+          renumber).
+        - Replaced the "report is just transactions" paragraph with
+          a "summary, not a transaction list" paragraph.
+        - New assumption documenting multi-category attribution and
+          its arithmetic consequence (sum of breakdown totals !=
+          netTotal when multi-tagged transactions exist).
+
+  README.md:
+    - Business Contracts table: ReportResult description rewritten;
+      CategoryBreakdownItem re-added (it had been removed in
+      revision 2).
+    - Reports section: intro paragraph rewritten (response is an
+      aggregated summary, transactions not returned). The example
+      now leads with IsoWeek (matching the user's literal
+      illustration: 2026-W20, $1200/$430.50/$769.50, five-line
+      breakdown), then shows the Period example with the same
+      ReportResult shape but a "yyyy-MM-dd..yyyy-MM-dd" period
+      descriptor. Added a final paragraph documenting the multi-
+      category attribution rule.
+
+  CLAUDE.md:
+    - Top-of-file divergence note: replaced the "ReportResult
+      collapsed to a collection of TransactionResponse" bullet with
+      an accurate description of the summary shape; explicit note
+      that earlier revisions described two other shapes, so a
+      reader looking at git log understands the trajectory.
+    - Architecture rules / Business layer: re-added
+      CategoryBreakdownItem to the list of Business-owned DTOs.
+    - Report system section: removed the "flat collection of
+      TransactionResponse — nothing else" claim and replaced it
+      with the actual summary description. Aggregation rules
+      rewritten end-to-end: signed CategoryBreakdownItem.total,
+      multi-category attribution, breakdown ordering rule, and the
+      string descriptor format for `period`.
+    - Skill-pattern hint at the bottom updated: the strategy shape
+      is now parse-typed-data → resolve-to-range → filter →
+      aggregate → sort-breakdown (not → map, since no transactions
+      are mapped into the response anymore).
+
+  specs/001-domain-entities-dtos/checklists/requirements.md:
+    - New "Revision 3" entry summarizing the pivot.
+
+Decision: Accepted (user explicitly directed this shape via the
+  clarifying question; awaiting final review of the diffs).
+
+Reason:
+  - The user's two-point reply ("Specifications shouldn't be
+    updated" + "didn't get the totals/breakdown reading") plus the
+    follow-up example fully constrained the design. I deliberately
+    did not edit ai-artifacts/Specifications/*.md per their first
+    point.
+  - The user's example shows signed per-category totals (`+$1,200`,
+    `-$180.25`) and no transaction count. The contract followed
+    literally: CategoryBreakdownItem is reduced to { category,
+    total: signed decimal } with no count and no separate direction
+    field. The sign is the direction indicator. For Both-type
+    categories with mixed-direction transactions in the period, the
+    single signed total nets income vs expense — this is the only
+    coherent interpretation of a single signed number per category,
+    and is documented as an edge case.
+  - Multi-category attribution choice (full credit to each tagged
+    category, not pro-rated) was made because:
+      a) the user's literal example showed full per-category totals
+         (e.g., "Groceries: -$180.25" — clearly a full grocery
+         total, not a fraction);
+      b) pro-rating loses information (a $20 grocery run tagged
+         "Groceries" + "Health Food" has spent $20 on each in a
+         meaningful sense, not $10);
+      c) the resulting sum-divergence-from-netTotal is documented
+         once and is easy to explain.
+  - `period` was modeled as a `string` (not a polymorphic structured
+    field) to keep ReportResult's response shape uniform across
+    report types. The format conventions ("yyyy-Www" for IsoWeek,
+    "yyyy-MM-dd..yyyy-MM-dd" for Period) are documented in the
+    spec, README, and CLAUDE.md.
+  - categoryBreakdown ordering (income-first, expense-second,
+    alphabetical within each) was a clarifying judgment call — the
+    user's literal example was not strictly sorted by any obvious
+    key, but a deterministic order is required for round-trip
+    fidelity and for byte-identical recompute (SC-006). The chosen
+    order is the one most consumers expect from a finance summary.
+  - The previous revision's checklist entry incorrectly described
+    its own FR-renumber (it claimed FR-006..027 — actually
+    FR-001..027). The current revision's checklist entry is precise
+    about the new FR-001..030 layout.
+
+Open follow-ups / not yet done:
+  - ai-artifacts/Specifications/*.md remain out of sync per user
+    direction — leave them alone until the corresponding features
+    are scheduled, then rewrite as part of those feature slices.
+  - Changes are still uncommitted on the 001-domain-entities-dtos
+    branch.
+
+=========================================================================
+Timestamp: 2026-05-19
+Model / tool: Claude Code (Opus 4.7, 1M context) via /speckit-constitution
+-------------------------------------------------------------------------
+Prompt:
+  update constitution
+
+  [followed by the queued amendment text from
+   specs/001-domain-entities-dtos/plan.md's "Constitution Amendment
+   Required" section, passed via the speckit-constitution skill input]
+
+AI suggestion:
+  Bumped .specify/memory/constitution.md from v1.0.0 to v2.0.0 with
+  amendments to four of the five principles (I, II, III, IV).
+
+  File updated:
+    .specify/memory/constitution.md
+
+  Per-principle changes:
+
+  Principle I (Three-Layer Architecture Boundaries) — NON-NEGOTIABLE
+    - Finance.Data bullet: now describes "domain entities (Transaction,
+      Category — both records) and their related enums (TransactionType,
+      CategoryType — enums, not standalone entities)" with the
+      "MUST NOT contain ... DTOs" clause kept in place.
+    - Finance.Business bullet: expanded to own ALL DTOs (the four HTTP
+      request/response shapes + the report contracts), the ReportType
+      enum, the entity↔DTO mappers (TransactionMapper, CategoryMapper),
+      and the centralized JsonSerializationOptions, in addition to the
+      report factory/strategies, validation, aggregation, and (later)
+      MCP abstractions.
+    - Finance.Api bullet: rewrote to say it owns "model binding
+      (reusing the Business-layer DTOs directly)" and explicitly forbids
+      introducing API-specific models unless there's a concrete need
+      beyond the Business DTOs. Added the load-bearing sentence:
+      "**The API layer never sees a domain entity** — the Business
+      layer maps Transaction/Category to the corresponding response
+      DTO before any data crosses the boundary."
+    - Rationale extended to cover why DTO centralization in Business
+      is the right call: single source of truth for "what the
+      application accepts and emits", thin API as transport adapter,
+      and testable boundary in isolation.
+
+  Principle II (Report Factory + Strategy Pattern) — NON-NEGOTIABLE
+    - Envelope description: replaced
+      "{ \"type\": <string>, \"parameters\": <object> }" with the typed
+      "{ \"type\": <ReportType-enum>, \"data\": <per-type payload> }"
+      and noted that data is delivered as a JsonElement on the envelope
+      record so the strategy deserializes lazily into PeriodReportData
+      / IsoWeekReportData / etc.
+    - Added a per-ReportType payload-shape sub-section: Period uses
+      { start, end } calendar dates ([start 00:00:00, end 23:59:59]
+      inclusive against full DateTime timestamps); IsoWeek uses
+      { week: ISO-8601 string }.
+    - Added a "ReportResult shape (NON-NEGOTIABLE)" sub-section
+      enumerating the six fields (type, period descriptor string,
+      incomeTotal, expenseTotal, netTotal, categoryBreakdown) and
+      explicitly forbidding a transactions array, a currency field, or
+      any other report metadata. CategoryBreakdownItem reduced to
+      { category, total (signed) } — explicit "sign is the direction
+      indicator; no separate direction field, no transaction count".
+    - Aggregation invariants block rewritten:
+        * Amounts on TransactionResponse always positive (unchanged).
+        * Amounts inside categoryBreakdown are SIGNED (new).
+        * Sort order: income-first (positive total), expense-second
+          (negative total), alphabetical within each group (replaces
+          "by transaction type, then category name").
+        * Multi-category attribution: N-category transactions
+          contribute their full signed amount to each of N breakdown
+          items; sum of breakdown totals MAY exceed |netTotal| when
+          multi-tagged transactions exist (new).
+        * Reports are ad-hoc; identical requests with unchanged data
+          produce byte-identical responses (new).
+        * HTTP 400 mapping clauses: now covers missing/invalid data,
+          unknown ReportType enum value, Period with start > end,
+          malformed IsoWeek.week.
+    - Rationale extended with two new clauses: the typed envelope makes
+      unknown report types fail at request binding (rather than deep
+      in the factory), and the summary-only ReportResult keeps responses
+      small and forces consumers to use the dedicated transactions
+      endpoint when they want raw rows.
+
+  Principle III (Seeded In-Memory Determinism) — NON-NEGOTIABLE
+    - "Deterministic GUIDs" bullet replaced with "deterministic integer
+      seed IDs" + explicit "Guid MUST NOT be used for entity identity
+      anywhere".
+    - New bullet: Transaction.Timestamp is a full DateTime (year-second
+      precision in local clock), NOT DateOnly, NOT DateTimeOffset.
+    - Single-category compatibility bullet replaced with the
+      multi-category rule: Transaction.CategoryIds is a non-empty
+      IReadOnlyList<int>; every attached category's CategoryType must
+      be compatible with the transaction's TransactionType (Expense
+      tx + any combination of Expense/Both categories; symmetric for
+      Income). Validation enforcement deferred to Business layer.
+    - New bullet: all amounts are USD; no currency field on any entity,
+      DTO, or response — multi-currency support explicitly out of scope.
+    - Rationale extended to explain int IDs (readability without losing
+      determinism) and the multi-category rationale (real-world fit
+      + breakdown integrity).
+
+  Principle IV (Test-First with xUnit v3) — was "Test-First with xUnit
+  + FluentAssertions" — title and body rewritten
+    - Title changed from "Test-First with xUnit + FluentAssertions" to
+      "Test-First with xUnit v3".
+    - Tests-location clause: replaced "in a dedicated Finance.Tests
+      project" with "in dedicated test projects under
+      src/backend/FinanceTracker/tests/, organised as one unit-test
+      project per production project (Finance.Data.UnitTests,
+      Finance.Business.UnitTests, Finance.Api.UnitTests) plus a
+      dedicated Finance.Api.IntegrationTests project."
+    - Runner clause: pinned to "xUnit v3 (xunit.v3, OutputType=Exe)".
+    - Assertion clause: switched to "built-in Xunit.Assert API.
+      FluentAssertions is NOT used in this project — no third-party
+      assertion library is referenced."
+    - Required-coverage-areas list rewritten to be ordered by test
+      project (which tests live in Data.UnitTests vs Business.UnitTests
+      vs Api.IntegrationTests) and to add the new in-scope coverage
+      items: multi-category order preservation, DTO round-trip
+      fidelity (decimal/DateTime/enum-name/ordering), entity↔DTO
+      mapper correctness, integer-ID determinism on repository tests,
+      multi-category attribution invariants in report aggregation,
+      and the income-first/expense-second/alphabetical-within ordering
+      + signed total semantics on the category breakdown.
+    - Rationale replaced: "FluentAssertions is mandated for
+      consistency of failure messages and because the
+      period-report-strategy-spec is written assuming it" -> "the
+      project uses plain Xunit.Assert to keep the dependency surface
+      minimal and to avoid the FluentAssertions v7 → v8 commercial-
+      license cliff. Older ai-artifacts/ specs still phrase their
+      required-test lists in FluentAssertions style; those phrasings
+      translate one-to-one to Xunit.Assert equivalents at
+      implementation time."
+
+  Principle V (AI-Assisted Development Transparency) — unchanged.
+
+  Version footer: 1.0.0 -> 2.0.0; Last Amended 2026-05-18 ->
+  2026-05-19; Ratified date kept at 2026-05-18 (first adoption).
+
+  Sync Impact Report (top-of-file HTML comment) rewritten end-to-end:
+    - "Version change: 1.0.0 -> 2.0.0".
+    - Bump rationale paragraph naming all four redefined NON-NEGOTIABLE
+      principles.
+    - "Drifts ratified" enumeration of all six drifts with the
+      one-line summary of each (referencing plan.md Complexity
+      Tracking).
+    - "Modified principles" list with the principle-to-drift mapping.
+    - "Renamed principles": IV's title change.
+    - Templates-requiring-updates: all five (plan/spec/tasks/checklist/
+      constitution templates) verified as "no edit required" — they
+      defer to this file at runtime; the runtime gates in
+      plan-template.md read principles dynamically.
+    - Runtime guidance docs: README.md and CLAUDE.md flagged as
+      already aligned (the spec/README/CLAUDE.md edits during this
+      feature drove the changes).
+    - Deferred items: ai-artifacts/Specifications/in-memory-repository-
+      spec.md and period-report-strategy-spec.md remain
+      out-of-sync (user-directed deferral until those features are
+      scheduled), and the broken
+      .specify/extensions/git/scripts/powershell/initialize-repo.ps1
+      hook is documented as an upstream bug rather than a project
+      issue.
+
+  Also updated:
+    specs/001-domain-entities-dtos/plan.md - Constitution Check now
+      shows all five principles ✅ PASS against constitution v2.0.0.
+      The historical "Complexity Tracking" and "Constitution Amendment
+      Required" sections are retained as a record of the amendment
+      input, with a "historical note" at the bottom of the Constitution
+      Check confirming they no longer represent open work.
+
+Decision: Accepted (constitution amended end-to-end; awaiting user
+  review of the diff).
+
+Reason:
+  - The amendment text was supplied by the user as a multi-part
+    directive that mapped one-to-one to the four amended principles
+    plus the Sync Impact Report. Drift ratification was the user's
+    explicit choice (after the multi-turn design work that produced
+    the drifts in the first place), so this is a pure transcription
+    + consistency-check job rather than a design decision.
+  - MAJOR version bump (1.0.0 -> 2.0.0) was the right call because
+    drifts #1, #2, #4, #5 each redefine a NON-NEGOTIABLE principle in
+    a backwards-incompatible way (constitution governance versioning
+    policy explicitly says MAJOR for "a principle is removed,
+    redefined in a backwards-incompatible way, or the dependency
+    direction / scope envelope changes").
+  - The before_constitution git hook (speckit.git.initialize) failed
+    to run due to an upstream Unicode encoding bug in
+    initialize-repo.ps1 (checkmark character mangled by PowerShell
+    5.1). The hook is conceptually a no-op for an existing repo, so
+    the amendment proceeded without it. Documented in the Sync Impact
+    Report as a deferred item.
+  - Templates were verified by grep against the principle-bound terms
+    (FluentAssertions, Guid, DateOnly, categoryBreakdown, ReportResult,
+    Finance.Tests, "parameters object") — zero matches in any of the
+    five template files. The runtime-gate design in spec-kit (where
+    plan-template.md's Constitution Check section reads principles
+    dynamically rather than hard-coding them) was the right choice
+    and meant this amendment's blast radius stayed inside the
+    constitution itself.
+
+Open follow-ups / not yet done:
+  - ai-artifacts/Specifications/*.md remain out of sync per user
+    direction; will be rewritten as part of the corresponding feature
+    slices.
+  - The broken initialize-repo.ps1 hook script: should be filed as a
+    speckit-extensions issue upstream, but that's outside this
+    project's scope.
+  - /speckit-tasks is now unblocked. Recommended next step.
+  - Changes are still uncommitted on the 001-domain-entities-dtos
+    branch — a /speckit-git-commit run now would checkpoint the
+    constitution amendment plus all the earlier feature artifacts in
+    one cohesive commit.
+
+=========================================================================
+Timestamp: 2026-05-19
+Model / tool: Claude Code (Opus 4.7, 1M context) via /speckit-plan
+-------------------------------------------------------------------------
+Prompt:
+  /speckit-plan with arguments "001-domain-entities-dtos"
+
+AI suggestion:
+  Generated the full Phase 0 + Phase 1 plan artifact set for the
+  domain-entities-and-DTOs feature.
+
+  Files created:
+    specs/001-domain-entities-dtos/plan.md
+    specs/001-domain-entities-dtos/research.md
+    specs/001-domain-entities-dtos/data-model.md
+    specs/001-domain-entities-dtos/quickstart.md
+    specs/001-domain-entities-dtos/contracts/README.md
+    specs/001-domain-entities-dtos/contracts/transaction-create-request.schema.json
+    specs/001-domain-entities-dtos/contracts/transaction-response.schema.json
+    specs/001-domain-entities-dtos/contracts/category-create-request.schema.json
+    specs/001-domain-entities-dtos/contracts/category-response.schema.json
+    specs/001-domain-entities-dtos/contracts/report-request.schema.json
+    specs/001-domain-entities-dtos/contracts/report-result.schema.json
+
+  File updated:
+    CLAUDE.md (SPECKIT block now points at the feature plan and flags
+               the constitution-amendment prerequisite)
+
+  Key design decisions captured in research.md (Phase 0):
+    1. ReportRequest.Data is JsonElement; each strategy deserializes
+       its own typed payload. Rejected the discriminated-union and
+       custom-converter alternatives because they pull System.Text.Json
+       polymorphism concerns into the DTO definitions.
+    2. Centralized JsonSerializerOptions in Finance.Business with
+       JsonStringEnumConverter (no naming policy — preserve declared
+       case) and camelCase property naming.
+    3. IReadOnlyList<T> for every collection-typed record property
+       (CategoryIds, Categories, CategoryBreakdown). Rejected
+       ImmutableArray<T> (deserialization fragility) and IEnumerable<T>
+       (no index/count).
+    4. DateOnly for PeriodReportData.Start/End; DateTime for
+       Transaction.Timestamp; string for IsoWeekReportData.Week.
+
+  Phase 1 data-model.md captures the concrete record signatures, the
+  mapper signatures (TransactionMapper takes IReadOnlyDictionary<int,
+  Category> for category lookup; CategoryMapper is a pure 1:1), and
+  the relationship diagram. The 9 records / 3 enums / 2 mappers /
+  ~12 tests scope is documented in plan.md.
+
+  Phase 1 contracts/ has JSON Schemas (Draft 2020-12) for every DTO
+  that crosses the HTTP boundary, including report-request.schema.json
+  with an if/then block modeling the ReportType discriminated union
+  between PeriodReportData and IsoWeekReportData.
+
+  Phase 1 quickstart.md is the 7-step dependency-ordered "how to
+  implement this feature" guide, including verification commands
+  (dotnet build / dotnet test) and a section on how downstream
+  features (repositories, controllers, period-report strategy)
+  consume the contracts.
+
+Decision: Plan completed; awaiting constitution amendment before
+  /speckit-tasks. The plan itself flags this prerequisite and the
+  CLAUDE.md SPECKIT block carries the warning so any subsequent
+  invocation surfaces it.
+
+Reason:
+  - The Constitution Check identified five drifts vs.
+    .specify/memory/constitution.md v1.0.0, all from user-directed
+    spec revisions across this work stream. Per the constitution's own
+    Governance section ("a PR that violates a NON-NEGOTIABLE
+    principle MUST be rejected, not patched, until the violation is
+    removed or an amendment is filed"), tasks generation cannot
+    legitimately proceed until /speckit-constitution lands the
+    amendment.
+  - Drift list (all documented in plan.md's Complexity Tracking):
+      #1 DTOs in Business (constitution puts them in Api)
+      #2 ReportRequest envelope shape (type:enum + data, not
+         type:string + parameters)
+      #3 ReportResult shape and sort invariants (summary-only; no
+         transactions array; signed CategoryBreakdownItem.total; new
+         sort order)
+      #4 int identifiers (constitution mandates Guids)
+      #5 multi-category transactions (constitution single-category
+         rule)
+    Each drift entry in Complexity Tracking has a "Why needed" plus a
+    "Simpler alternative rejected because" so the amendment PR can
+    use the table verbatim.
+  - The plan's Source Code structure includes the planned
+    Finance.Tests project — it doesn't exist yet on disk but is named
+    in both README.md and CLAUDE.md. Scaffolding it is part of this
+    feature, not a later one, because the test coverage areas
+    Principle IV requires for entities/mappers can't be exercised
+    without it.
+  - JsonElement for ReportRequest.Data was the contentious call. The
+    alternatives (sealed abstract record + per-type subclass; custom
+    JsonConverter dispatching on Type; Dictionary<string, object>)
+    are all noted in research.md §1 with the reasons they were
+    rejected. The chosen approach matches the existing
+    ai-artifacts/Specifications/period-report-strategy-spec.md design
+    (record ReportRequest(string Type, JsonElement Parameters)),
+    differing only in the renames (Type → ReportType enum,
+    Parameters → Data).
+  - The mapper signatures take their dependencies as plain arguments
+    (IReadOnlyDictionary for category lookup) rather than injecting
+    a repository. This keeps them pure, trivially testable, and
+    consistent with the rule that the API layer never sees a domain
+    entity directly (the service composing the controller + repo +
+    mapper is the one assembling the dictionary).
+  - The polymorphic ReportRequest contract was modeled in JSON
+    Schema using Draft 2020-12 if/then conditionals. This is
+    deliberately the most explicit possible shape so the future
+    OpenAPI document for POST /api/reports can mirror it.
+
+Open follow-ups / not yet done:
+  - /speckit-constitution to ratify the five drifts (MAJOR bump to
+    v2.0.0). Suggested amendments are inlined in plan.md's
+    "Constitution Amendment Required" section.
+  - /speckit-tasks once the amendment lands, then /speckit-implement.
+  - The before_plan hook (speckit.git.commit) was optional and was
+    not auto-executed; this plan run also leaves the prior spec/
+    README/CLAUDE.md changes uncommitted along with the new plan
+    artifacts.
+  - The after_plan hook (speckit.git.commit) is also optional;
+    surfaced below.
+
+=========================================================================
+Timestamp: 2026-05-19
+Model / tool: Claude Code (Opus 4.7, 1M context) — manual edits
+-------------------------------------------------------------------------
+Prompt:
+  Added tests projects. Update plan accordingly.
+
+  [Then, mid-edit, the user followed up with:]
+
+  Remove fluent assertions completly. We will use default methods of
+  dotnet and xunit.
+
+AI suggestion:
+  Combined both directives into a single revision pass that updated
+  every plan artifact that mentioned the test setup. Three substantive
+  changes:
+
+  1. Test layout. The single planned `Finance.Tests` project is gone;
+     the on-disk reality is four projects under
+     src/backend/FinanceTracker/tests/:
+       - Finance.Data.UnitTests
+       - Finance.Business.UnitTests
+       - Finance.Api.UnitTests
+       - Finance.Api.IntegrationTests
+     All use xunit.v3 3.2.2 with OutputType=Exe (v3's executable
+     hosting model rather than v2's library-with-runner). All four
+     are bare scaffolds — no ProjectReferences yet. This feature
+     populates the first two; the API ones stay empty until controllers
+     and endpoints ship in later features.
+
+  2. xUnit v3 (was unspecified — only "xUnit"). v3's [Fact]/[Theory]
+     author surface is identical to v2; the change is the Exe-style
+     hosting + in-process discovery.
+
+  3. No FluentAssertions, no replacement. The user explicitly
+     directed the removal mid-edit; the project will use the built-in
+     Xunit.Assert API exclusively (Assert.Equal, Assert.True,
+     Assert.Throws<T>, Assert.Collection, Assert.IsAssignableFrom<T>,
+     etc.). No third-party assertion library at all.
+
+  File-by-file:
+
+  specs/001-domain-entities-dtos/plan.md:
+    - Technical Context "Testing" line: rewritten to name xUnit v3,
+      describe the four-project layout, and explicitly call out "No
+      FluentAssertions, Xunit.Assert only".
+    - Scale/Scope: distributed test count across Finance.Data.UnitTests
+      (~3 tests) and Finance.Business.UnitTests (~9 tests); noted
+      that the API test projects get nothing this feature.
+    - Constitution Check Principle IV row: changed from ✅ PASS to
+      ⚠️ DRIFT covering both the multi-project layout and the
+      FluentAssertions removal.
+    - Project Structure tree: replaced the planned Finance.Tests
+      subtree with the four-project tree under tests/. Each populated
+      test project's csproj note now says "ADD: <ProjectReference>...
+      NO FluentAssertions; use Xunit.Assert".
+    - Structure Decision paragraph: rewritten — test projects already
+      exist; the two populated ones get only project references; no
+      new NuGet packages.
+    - Complexity Tracking drift #6: rewritten to cover all three
+      changes (multi-project layout + xUnit v3 + no FluentAssertions)
+      as one consolidated entry. The previous version of drift #6
+      (which I had drafted earlier in the same turn before the
+      FluentAssertions follow-up) was a single sentence about the
+      project split; this version is the full three-axis story with
+      per-change rejected-alternatives.
+    - Conclusion text: updated drift count from five to six (drifts
+      #1-5 still flag NON-NEGOTIABLE redefinitions; drift #6 is
+      PATCH-level Principle IV wording).
+    - Constitution Amendment section item #4: rewrote the Principle
+      IV amendment text to (a) describe the four-project layout, (b)
+      pin xUnit v3 or later, and (c) replace "FluentAssertions for
+      assertions" with "the built-in Xunit.Assert API". Replaced the
+      Rationale paragraph with a "minimum-dependency surface;
+      FA v7-vs-v8 cliff avoided" justification.
+
+  specs/001-domain-entities-dtos/research.md:
+    - Section count in the header: "four design questions" → "five".
+    - New §5 "Test framework choice — xUnit v3, no FluentAssertions".
+      Final form covers: xUnit v3 rationale (Exe model, same author
+      API), built-in Xunit.Assert as the assertion choice (with an
+      enumeration of which Assert.X method covers which spec
+      requirement), the multi-project layout rationale, and four
+      rejected alternatives (xUnit v2; pin FA v7.x; FA v8; Shouldly/
+      AwesomeAssertions/TUnit).
+    - §5 was written first as "xUnit v3 + FluentAssertions v7" (per
+      the initial test-projects-only directive) and immediately
+      rewritten to "no FluentAssertions" after the user's follow-up.
+    - Summary line bumped from "four" to "five" design questions
+      resolved.
+
+  specs/001-domain-entities-dtos/quickstart.md:
+    - Step 5 (was "Scaffold the Finance.Tests project" with dotnet
+      new xunit commands): rewritten as "Wire up the existing test
+      projects". The dotnet add reference commands now target the
+      two populated test projects; the dotnet add package
+      FluentAssertions lines were removed entirely (initially they
+      were just version-pinned to 7.*, then dropped).
+    - The Step 5 explanatory bullets now mention "built-in
+      Xunit.Assert API" rather than "FluentAssertions v7".
+    - Step 6 (test inventory): one bullet referenced
+      "should.BeAssignableTo<IReadOnlyList<int>>()" — rewritten to
+      "Assert.IsAssignableFrom<IReadOnlyList<int>>(value)".
+    - "What this feature delivers" bullets and "When you're done"
+      bullets cleaned of FluentAssertions mentions.
+
+  CLAUDE.md:
+    - "Current state vs. spec" section: updated the test-projects
+      bullet to describe the on-disk reality (four projects, xunit.v3,
+      no ProjectReferences, no FluentAssertions).
+    - Commands section: replaced "xUnit + FluentAssertions per the
+      spec" with "xUnit v3 with the built-in Xunit.Assert API ...
+      NO FluentAssertions" + pointer to plan.md drift #6.
+
+  README.md:
+    - Tech Stack table: "xUnit + FluentAssertions" → "xUnit v3
+      (built-in Xunit.Assert; no FluentAssertions)".
+
+  Files NOT updated (intentional):
+    - .specify/memory/constitution.md (Principle IV still says
+      "FluentAssertions for assertions") — direct edits to the
+      constitution bypass /speckit-constitution. The amendment text
+      is queued in plan.md's "Constitution Amendment Required"
+      section.
+    - ai-artifacts/Specifications/in-memory-repository-spec.md and
+      period-report-strategy-spec.md (still reference FluentAssertions
+      in their required-test lists) — per the user's prior standing
+      direction, these stay out of scope until their corresponding
+      features are scheduled.
+
+Decision: Accepted (user issued both directives during this same
+  turn; awaiting review of the diffs).
+
+Reason:
+  - The two directives are tightly coupled: the test-projects update
+    rewrote the same sections of the same files (plan.md Technical
+    Context, Principle IV row, drift #6, quickstart.md Step 5,
+    research.md §5, CLAUDE.md test-related lines) that the
+    FluentAssertions removal then re-rewrote. Doing them in one pass
+    avoided redundant edits.
+  - Drift #6 consolidates three changes into one entry rather than
+    splitting them. Splitting (e.g., #6 multi-project, #7 xUnit v3,
+    #8 no FluentAssertions) would inflate the drift count without
+    making the amendment plan easier to write — every one of the
+    three changes lands in the same Principle IV bullet of the
+    constitution.
+  - The choice of "no third-party assertion library" (Xunit.Assert
+    only) was the user's directive, not a Claude judgment call. But
+    documenting why FA v7 / FA v8 / Shouldly / AwesomeAssertions /
+    TUnit were rejected (research.md §5 alternatives list) preserves
+    the trail for any future reader wondering whether to introduce
+    one.
+  - The four-project test layout means the "test the X project"
+    references for the API are now natural-named (Finance.Api.X)
+    and the integration tests are already isolated in their own
+    project — a forward-looking gift to the controllers/endpoints
+    feature, which can now drop WebApplicationFactory into
+    Finance.Api.IntegrationTests without polluting unit tests.
+
+Open follow-ups / not yet done:
+  - /speckit-constitution amendment (drifts #1-#6, MAJOR bump to
+    v2.0.0). Drift #6's wording now covers test layout + xUnit v3 +
+    no FluentAssertions in one bullet.
+  - The ai-artifacts/Specifications/*.md files describe required
+    tests in FluentAssertions phrasing — when those features are
+    implemented, the test phrasings will need to be translated to
+    Xunit.Assert form. This is captured in the CLAUDE.md divergence
+    note at the top of the file (which now lists FluentAssertions
+    removal as an out-of-sync item alongside the int IDs, full
+    DateTime, etc.).
+  - Changes are still uncommitted on the 001-domain-entities-dtos
+    branch.
+
+=========================================================================
+Timestamp: 2026-05-19
+Model / tool: Claude Code (Opus 4.7, 1M context) via /speckit-constitution
+-------------------------------------------------------------------------
+Prompt:
+  update constitution
+
+  [followed by the queued amendment text from
+   specs/001-domain-entities-dtos/plan.md's "Constitution Amendment
+   Required" section, passed via the speckit-constitution skill input]
+
+AI suggestion:
+  Bumped .specify/memory/constitution.md from v1.0.0 to v2.0.0 with
+  amendments to four of the five principles (I, II, III, IV).
+
+  File updated:
+    .specify/memory/constitution.md
+
+  Per-principle changes:
+
+  Principle I (Three-Layer Architecture Boundaries) — NON-NEGOTIABLE
+    - Finance.Data bullet: now describes "domain entities (Transaction,
+      Category — both records) and their related enums (TransactionType,
+      CategoryType — enums, not standalone entities)" with the
+      "MUST NOT contain ... DTOs" clause kept in place.
+    - Finance.Business bullet: expanded to own ALL DTOs (the four HTTP
+      request/response shapes + the report contracts), the ReportType
+      enum, the entity↔DTO mappers (TransactionMapper, CategoryMapper),
+      and the centralized JsonSerializationOptions, in addition to the
+      report factory/strategies, validation, aggregation, and (later)
+      MCP abstractions.
+    - Finance.Api bullet: rewrote to say it owns "model binding
+      (reusing the Business-layer DTOs directly)" and explicitly forbids
+      introducing API-specific models unless there's a concrete need
+      beyond the Business DTOs. Added the load-bearing sentence:
+      "**The API layer never sees a domain entity** — the Business
+      layer maps Transaction/Category to the corresponding response
+      DTO before any data crosses the boundary."
+    - Rationale extended to cover why DTO centralization in Business
+      is the right call: single source of truth for "what the
+      application accepts and emits", thin API as transport adapter,
+      and testable boundary in isolation.
+
+  Principle II (Report Factory + Strategy Pattern) — NON-NEGOTIABLE
+    - Envelope description: replaced
+      "{ \"type\": <string>, \"parameters\": <object> }" with the typed
+      "{ \"type\": <ReportType-enum>, \"data\": <per-type payload> }"
+      and noted that data is delivered as a JsonElement on the envelope
+      record so the strategy deserializes lazily into PeriodReportData
+      / IsoWeekReportData / etc.
+    - Added a per-ReportType payload-shape sub-section: Period uses
+      { start, end } calendar dates ([start 00:00:00, end 23:59:59]
+      inclusive against full DateTime timestamps); IsoWeek uses
+      { week: ISO-8601 string }.
+    - Added a "ReportResult shape (NON-NEGOTIABLE)" sub-section
+      enumerating the six fields (type, period descriptor string,
+      incomeTotal, expenseTotal, netTotal, categoryBreakdown) and
+      explicitly forbidding a transactions array, a currency field, or
+      any other report metadata. CategoryBreakdownItem reduced to
+      { category, total (signed) } — explicit "sign is the direction
+      indicator; no separate direction field, no transaction count".
+    - Aggregation invariants block rewritten:
+        * Amounts on TransactionResponse always positive (unchanged).
+        * Amounts inside categoryBreakdown are SIGNED (new).
+        * Sort order: income-first (positive total), expense-second
+          (negative total), alphabetical within each group (replaces
+          "by transaction type, then category name").
+        * Multi-category attribution: N-category transactions
+          contribute their full signed amount to each of N breakdown
+          items; sum of breakdown totals MAY exceed |netTotal| when
+          multi-tagged transactions exist (new).
+        * Reports are ad-hoc; identical requests with unchanged data
+          produce byte-identical responses (new).
+        * HTTP 400 mapping clauses: now covers missing/invalid data,
+          unknown ReportType enum value, Period with start > end,
+          malformed IsoWeek.week.
+    - Rationale extended with two new clauses: the typed envelope makes
+      unknown report types fail at request binding (rather than deep
+      in the factory), and the summary-only ReportResult keeps responses
+      small and forces consumers to use the dedicated transactions
+      endpoint when they want raw rows.
+
+  Principle III (Seeded In-Memory Determinism) — NON-NEGOTIABLE
+    - "Deterministic GUIDs" bullet replaced with "deterministic integer
+      seed IDs" + explicit "Guid MUST NOT be used for entity identity
+      anywhere".
+    - New bullet: Transaction.Timestamp is a full DateTime (year-second
+      precision in local clock), NOT DateOnly, NOT DateTimeOffset.
+    - Single-category compatibility bullet replaced with the
+      multi-category rule: Transaction.CategoryIds is a non-empty
+      IReadOnlyList<int>; every attached category's CategoryType must
+      be compatible with the transaction's TransactionType (Expense
+      tx + any combination of Expense/Both categories; symmetric for
+      Income). Validation enforcement deferred to Business layer.
+    - New bullet: all amounts are USD; no currency field on any entity,
+      DTO, or response — multi-currency support explicitly out of scope.
+    - Rationale extended to explain int IDs (readability without losing
+      determinism) and the multi-category rationale (real-world fit
+      + breakdown integrity).
+
+  Principle IV (Test-First with xUnit v3) — was "Test-First with xUnit
+  + FluentAssertions" — title and body rewritten
+    - Title changed from "Test-First with xUnit + FluentAssertions" to
+      "Test-First with xUnit v3".
+    - Tests-location clause: replaced "in a dedicated Finance.Tests
+      project" with "in dedicated test projects under
+      src/backend/FinanceTracker/tests/, organised as one unit-test
+      project per production project (Finance.Data.UnitTests,
+      Finance.Business.UnitTests, Finance.Api.UnitTests) plus a
+      dedicated Finance.Api.IntegrationTests project."
+    - Runner clause: pinned to "xUnit v3 (xunit.v3, OutputType=Exe)".
+    - Assertion clause: switched to "built-in Xunit.Assert API.
+      FluentAssertions is NOT used in this project — no third-party
+      assertion library is referenced."
+    - Required-coverage-areas list rewritten to be ordered by test
+      project (which tests live in Data.UnitTests vs Business.UnitTests
+      vs Api.IntegrationTests) and to add the new in-scope coverage
+      items: multi-category order preservation, DTO round-trip
+      fidelity (decimal/DateTime/enum-name/ordering), entity↔DTO
+      mapper correctness, integer-ID determinism on repository tests,
+      multi-category attribution invariants in report aggregation,
+      and the income-first/expense-second/alphabetical-within ordering
+      + signed total semantics on the category breakdown.
+    - Rationale replaced: "FluentAssertions is mandated for
+      consistency of failure messages and because the
+      period-report-strategy-spec is written assuming it" -> "the
+      project uses plain Xunit.Assert to keep the dependency surface
+      minimal and to avoid the FluentAssertions v7 → v8 commercial-
+      license cliff. Older ai-artifacts/ specs still phrase their
+      required-test lists in FluentAssertions style; those phrasings
+      translate one-to-one to Xunit.Assert equivalents at
+      implementation time."
+
+  Principle V (AI-Assisted Development Transparency) — unchanged.
+
+  Version footer: 1.0.0 -> 2.0.0; Last Amended 2026-05-18 ->
+  2026-05-19; Ratified date kept at 2026-05-18 (first adoption).
+
+  Sync Impact Report (top-of-file HTML comment) rewritten end-to-end:
+    - "Version change: 1.0.0 -> 2.0.0".
+    - Bump rationale paragraph naming all four redefined NON-NEGOTIABLE
+      principles.
+    - "Drifts ratified" enumeration of all six drifts with the
+      one-line summary of each (referencing plan.md Complexity
+      Tracking).
+    - "Modified principles" list with the principle-to-drift mapping.
+    - "Renamed principles": IV's title change.
+    - Templates-requiring-updates: all five (plan/spec/tasks/checklist/
+      constitution templates) verified as "no edit required" — they
+      defer to this file at runtime; the runtime gates in
+      plan-template.md read principles dynamically.
+    - Runtime guidance docs: README.md and CLAUDE.md flagged as
+      already aligned (the spec/README/CLAUDE.md edits during this
+      feature drove the changes).
+    - Deferred items: ai-artifacts/Specifications/in-memory-repository-
+      spec.md and period-report-strategy-spec.md remain
+      out-of-sync (user-directed deferral until those features are
+      scheduled), and the broken
+      .specify/extensions/git/scripts/powershell/initialize-repo.ps1
+      hook is documented as an upstream bug rather than a project
+      issue.
+
+  Also updated:
+    specs/001-domain-entities-dtos/plan.md - Constitution Check now
+      shows all five principles ✅ PASS against constitution v2.0.0.
+      The historical "Complexity Tracking" and "Constitution Amendment
+      Required" sections are retained as a record of the amendment
+      input, with a "historical note" at the bottom of the Constitution
+      Check confirming they no longer represent open work.
+
+Decision: Accepted (constitution amended end-to-end; awaiting user
+  review of the diff).
+
+Reason:
+  - The amendment text was supplied by the user as a multi-part
+    directive that mapped one-to-one to the four amended principles
+    plus the Sync Impact Report. Drift ratification was the user's
+    explicit choice (after the multi-turn design work that produced
+    the drifts in the first place), so this is a pure transcription
+    + consistency-check job rather than a design decision.
+  - MAJOR version bump (1.0.0 -> 2.0.0) was the right call because
+    drifts #1, #2, #4, #5 each redefine a NON-NEGOTIABLE principle in
+    a backwards-incompatible way (constitution governance versioning
+    policy explicitly says MAJOR for "a principle is removed,
+    redefined in a backwards-incompatible way, or the dependency
+    direction / scope envelope changes").
+  - The before_constitution git hook (speckit.git.initialize) failed
+    to run due to an upstream Unicode encoding bug in
+    initialize-repo.ps1 (checkmark character mangled by PowerShell
+    5.1). The hook is conceptually a no-op for an existing repo, so
+    the amendment proceeded without it. Documented in the Sync Impact
+    Report as a deferred item.
+  - Templates were verified by grep against the principle-bound terms
+    (FluentAssertions, Guid, DateOnly, categoryBreakdown, ReportResult,
+    Finance.Tests, "parameters object") — zero matches in any of the
+    five template files. The runtime-gate design in spec-kit (where
+    plan-template.md's Constitution Check section reads principles
+    dynamically rather than hard-coding them) was the right choice
+    and meant this amendment's blast radius stayed inside the
+    constitution itself.
+
+Open follow-ups / not yet done:
+  - ai-artifacts/Specifications/*.md remain out of sync per user
+    direction; will be rewritten as part of the corresponding feature
+    slices.
+  - The broken initialize-repo.ps1 hook script: should be filed as a
+    speckit-extensions issue upstream, but that's outside this
+    project's scope.
+  - /speckit-tasks is now unblocked. Recommended next step.
+  - Changes are still uncommitted on the 001-domain-entities-dtos
+    branch — a /speckit-git-commit run now would checkpoint the
+    constitution amendment plus all the earlier feature artifacts in
+    one cohesive commit.
+
+=========================================================================
+Timestamp: 2026-05-21
+Model / tool: Claude Code (Opus 4.7, 1M context) via /speckit-implement
+-------------------------------------------------------------------------
+Prompt:
+  /speckit-implement (initial invocation, no feature arg) and then
+  /speckit-implement 001-domain-entities-dtos.
+
+AI suggestion:
+  Halted at the prerequisite-check step. The PowerShell prerequisites
+  script (.specify/scripts/powershell/check-prerequisites.ps1 -Json
+  -RequireTasks -IncludeTasks) returned a non-zero exit code with the
+  message: "ERROR: tasks.md not found in
+  C:\Projects\Currys\finance-tracker-api\specs\001-domain-entities-dtos
+  - Run /speckit.tasks first to create the task list."
+
+  Confirmed by directly listing the spec folder: spec.md / plan.md /
+  research.md / data-model.md / quickstart.md / contracts/ / checklists/
+  are all present, but tasks.md is absent.
+
+  Reported the blocker and recommended the next-step sequence:
+    1. /speckit-constitution to ratify the drifts the CLAUDE.md SPECKIT
+       block flagged (CLAUDE.md said the bump to v2.0.0 was a
+       prerequisite for /speckit-tasks).
+    2. /speckit-tasks to generate tasks.md.
+    3. Re-run /speckit-implement.
+
+Decision: Halt /speckit-implement; no files modified.
+
+Reason:
+  - The /speckit-implement skill explicitly assumes a complete tasks.md
+    exists; without it there is no executable task list. The skill text
+    says "If tasks are incomplete or missing, suggest running
+    /speckit-tasks first" - followed that guidance.
+  - The CLAUDE.md SPECKIT block was still telling the reader to run
+    /speckit-constitution to bump the constitution to v2.0.0 before
+    /speckit-tasks, even though the constitution file on disk is
+    already at v2.0.0. Surfaced this staleness in the response so the
+    user could decide whether to chase the cleanup before continuing.
+  - No follow-up actions were taken without explicit user direction -
+    the right move on a halted command is to report and wait, not to
+    silently kick off the next skill.
+
+Open follow-ups (resolved later this same session):
+  - User chose to run /speckit-constitution first; see the next entry.
+
+=========================================================================
+Timestamp: 2026-05-21
+Model / tool: Claude Code (Opus 4.7, 1M context) via /speckit-tasks
+-------------------------------------------------------------------------
+Prompt:
+  /speckit-tasks with arguments "001-domain-entities-dtos".
+
+AI suggestion:
+  Generated specs/001-domain-entities-dtos/tasks.md with 31 tasks
+  (T001..T031) across 9 phases. Tests included (constitution
+  Principle IV requires test coverage; user input also explicitly
+  asked for tests). Test inventory follows quickstart.md S6 - 7 test
+  files (2 in Finance.Data.UnitTests, 5 in Finance.Business.UnitTests).
+
+  Files created:
+    specs/001-domain-entities-dtos/tasks.md
+
+  Phase layout:
+    Phase 1: Setup (T001..T003) - three csproj <ProjectReference>
+      edits. No source files yet.
+    Phase 2: Foundational (T004..T007) - TransactionType, CategoryType,
+      ReportType enums + JsonSerializationOptions.Default. Marked [P]
+      across the four; gates all user-story phases.
+    Phase 3: US1 P1 MVP (T008..T009) - Transaction record + tests.
+    Phase 4: US2 P1 (T010..T012) - Category + CategoryCreateRequest +
+      tests. T010 and T011 [P], T012 sequential.
+    Phase 5: US3 P1 (T013) - TransactionCreateRequest. Test coverage
+      delegated to T021 (TransactionMapperTests) per quickstart.md S6.
+    Phase 6: US4 P2 (T014..T021) - CategorySummary, TransactionResponse,
+      CategoryResponse, CategoryMapper, TransactionMapper, plus the
+      three round-trip/mapper tests. Three [P] waves within the phase.
+    Phase 7: US5 P2 (T022..T024) - CategoryBreakdownItem, ReportResult,
+      ReportResultRoundTripTests.
+    Phase 8: US6 P3 (T025..T028) - PeriodReportData, IsoWeekReportData,
+      ReportRequest, ReportRequestRoundTripTests.
+    Phase 9: Polish (T029..T031) - dotnet build, dotnet test,
+      ai-artifacts/agent_log.txt entry (Principle V deliverable).
+
+  Each task is checkbox-prefixed ("- [ ] T### [P?] [US#?] description
+  with file path"); file paths are all relative to the repository
+  root. Per-task descriptions include namespace, full record signature
+  (where applicable), the FRs it implements, and a reference to the
+  data-model.md / research.md / quickstart.md section that authorizes
+  the choice.
+
+  Dependencies & Execution Order section:
+    - Per-phase dependency block.
+    - User-story dependency block: US4 collects all P1 stories'
+      outputs (entities + create requests); US5 and US6 are
+      independent at the contract level (only depend on Phase 2).
+    - Parallel-opportunities block: documents which [P] tasks are
+      safe to parallelize within each phase.
+
+  Implementation Strategy section:
+    - MVP scope: US1 alone is the strictest MVP; US1+US2+US3 is the
+      narrowest demonstrable MVP (contracts-complete entities).
+    - Incremental delivery: Phase 1+2 -> US1 -> US2+US3 -> US4 ->
+      US5+US6 -> Polish.
+
+  Confirmed before generation: checklists/requirements.md is 16/16
+  PASS; no halt at the checklist gate.
+
+Decision: Accepted (tasks.md written end-to-end).
+
+Reason:
+  - Test files in tasks come straight from quickstart.md S6 (the
+    team's curated inventory) rather than padding to a per-DTO
+    coverage matrix. quickstart lists 7 files; spec FR-026 wants
+    round-trip on every DTO, but the team's chosen reading is that
+    mapper tests (T021 in particular) cover the request-side DTO
+    serialization implicitly by constructing the request DTO from
+    the README's example payload before exercising ToEntity. This
+    is documented inside Phase 5 as a note on US3's test coverage.
+  - Mappers placed in US4 (not US2/US3) because their tests can only
+    be written once both the request DTO and the response DTO exist.
+    US4 is the earliest phase where both are available.
+  - Polish phase T031 explicitly names the constitution v2.0.1
+    Principle V deliverable so future iterations don't drop the
+    log entry.
+  - Optional after_tasks hook (speckit.git.commit) surfaced but not
+    auto-executed.
+
+Open follow-ups (partially resolved later this same session):
+  - User asked next to scope the MVP down to Period-only; the
+    follow-up sweep reduced the task count from 31 to 30. See the
+    next entry.
+
+=========================================================================
+Timestamp: 2026-05-21
+Model / tool: Claude Code (Opus 4.7, 1M context) - manual edits
+-------------------------------------------------------------------------
+Prompt:
+  I would like to start with only one report type. It's period report.
+  ISO Week will be added later.
+
+  [followed by, via AskUserQuestion clarification:]
+    Q1 (sweep scope): "Feature artifacts only" - update only the 7
+      files under specs/001-domain-entities-dtos/; leave constitution
+      / CLAUDE.md / README.md alone.
+    Q2 (US5 fixture): "Keep ISO-week 2026-W20 example as fixture" -
+      the README's ISO-week example illustrates the ReportResult wire
+      shape; the test constructs that shape, regardless of report
+      type.
+
+AI suggestion:
+  Resolved the apparent contradiction between Q2 (keep ISO-week
+  fixture) and "drop IsoWeek" by keeping ReportType.IsoWeek in the
+  C# enum (and in the report-request.schema.json "type" enum) as a
+  DOCUMENTED FUTURE VALUE - and removing only its payload DTO,
+  payload schema branch, and payload-binding test case. This lets
+  the US5 fixture construct a ReportResult with Type =
+  ReportType.IsoWeek (matching the README's 2026-W20 example)
+  without requiring an IsoWeekReportData DTO or strategy to exist.
+
+  Files updated (7 inside the feature folder):
+
+  specs/001-domain-entities-dtos/contracts/report-request.schema.json:
+    - "type" enum kept as ["Period", "IsoWeek"] (matches C# enum).
+    - Removed $defs/IsoWeekReportData entirely.
+    - Removed the if/then branch for type == "IsoWeek".
+    - Removed the IsoWeek example from the top-level "examples"
+      array.
+    - "data" property description rewritten to say "IsoWeek payload
+      will be schema-defined when its strategy ships".
+    - Top-level "description" gained an MVP-scope note.
+
+  specs/001-domain-entities-dtos/data-model.md:
+    - Added a "MVP scope note (2026-05-21)" callout below the
+      ReportType enum block: only Period has a payload DTO; IsoWeek
+      stays as a documented future value so the README's
+      ReportResult example serves as the US5 test fixture.
+    - Replaced the IsoWeekReportData record block with a single-line
+      "intentionally not defined in this feature" comment.
+    - Removed the IsoWeekReportData row from the wire-shape table.
+    - Annotated the ReportResult row to note its wire shape is
+      ReportType-agnostic (the example just happens to use IsoWeek).
+    - Updated the relationships diagram: the if-IsoWeek branch now
+      says "(deferred - IsoWeekReportData ships with the IsoWeek
+      strategy)".
+    - Validation-rules table: removed the "IsoWeekReportData.Week
+      parses as ISO 8601 week" row; added a row noting that IsoWeek
+      requests have no registered strategy until the IsoWeek feature
+      ships.
+
+  specs/001-domain-entities-dtos/spec.md:
+    - Status line: appended "(revised 2026-05-21 - IsoWeek scoped
+      out to a future feature)".
+    - US6: prepended an "MVP scope (revised 2026-05-21)" paragraph;
+      reframed the per-type bullet for IsoWeek as "shape defined
+      and tested when the IsoWeek strategy ships"; dropped
+      acceptance scenario #3 (IsoWeek payload binding); renumbered
+      the unknown-enum-value scenario to #3 with the example
+      values updated ("Quarter", "Month" - explicit note that
+      "IsoWeek" is valid because it remains in the enum).
+    - FR-013: struck through with a "Deferred (2026-05-21)" note.
+    - FR-006: scoped to clarify that only "Period" has a defined
+      payload DTO in this feature.
+    - Edge cases: rewrote the IsoWeek-malformed-week-string entry
+      as a "deferred - no strategy yet" note.
+    - Key Entities: struck through the IsoWeekReportData bullet.
+    - ReportType bullet in Enums: appended "In this feature only
+      Period has a defined payload DTO; IsoWeek is reserved".
+
+  specs/001-domain-entities-dtos/plan.md:
+    - Summary: dropped IsoWeekReportData from the DTO list; added
+      an MVP-scope-clarification callout (2026-05-21) pointing at
+      spec.md US6.
+    - Technical-approach paragraph: now reads "PeriodReportData in
+      this feature" instead of "PeriodReportData, IsoWeekReportData".
+    - Project Structure file list: IsoWeekReportData.cs marked
+      DEFERRED inline.
+
+  specs/001-domain-entities-dtos/research.md:
+    - S1 (JsonElement decision): added an MVP scope callout
+      explaining the IsoWeek-as-future-value framing.
+    - S4 (DateOnly decision): the IsoWeekReportData.Week
+      consequence bullet rewritten as "deferred to the IsoWeek
+      strategy feature".
+
+  specs/001-domain-entities-dtos/quickstart.md:
+    - "What this feature delivers" section: ReportType enum
+      description now notes that IsoWeek is a documented future
+      value with no payload DTO in this feature.
+    - S3 file list: IsoWeekReportData.cs removed; explicit "NOT in
+      this feature" note added.
+    - S6 ReportRequestRoundTripTests description: removed the
+      IsoWeek + IsoWeekReportData test case; replaced "Quarter"
+      remark with explicit clarification that IsoWeek is a valid
+      enum value here so an out-of-enum value must be used for the
+      rejection test.
+
+  specs/001-domain-entities-dtos/tasks.md:
+    - Added a top-of-file revision banner explaining the scope-down.
+    - Phase 8 (US6) restated: goal, independent test, implementation
+      list rewritten.
+    - T026 (IsoWeekReportData) deleted; ReportRequest renumbered to
+      T026; test renumbered to T027. Polish phase tasks renumbered
+      T028..T030.
+    - Total tasks: 31 -> 30. The "IsoWeek payload round-trip" leg of
+      T027 (formerly T028) removed; the rejection test re-anchored
+      to use "Quarter" with an explicit note that IsoWeek is valid.
+    - Parallel-opportunities block for US6 updated from
+      "T025, T026, T027 in parallel; T028 after all three" to
+      "T025 and T026 in parallel; T027 after both".
+
+Decision: Accepted (user confirmed both scope and US5-fixture
+  choices via AskUserQuestion; all 7 files updated end-to-end).
+
+Reason:
+  - The "ReportType.IsoWeek as documented future value, no DTO"
+    framing is the minimum cost path that simultaneously honors
+    the user's "only Period" scope direction AND the user's
+    "keep ISO-week 2026-W20 fixture" selection. The alternative
+    interpretations would have created larger ripples: removing
+    IsoWeek from the enum forces a Period-based test fixture
+    (which would mean rewriting the README example, which Q1
+    explicitly excluded); leaving the IsoWeek DTO in place but
+    unimplemented contradicts "only one report type". The
+    future-value framing threads the needle.
+  - The minor inconsistency (an enum value with no DTO) is
+    documented in three places - the data-model.md MVP scope note,
+    the spec.md US6 scope note, and the tasks.md revision banner -
+    so any reader hitting it can recover.
+  - Q1 was explicitly "Feature artifacts only", so constitution
+    Principle II's IsoWeek-payload-shape bullet, the CLAUDE.md
+    Report system section, and the README example all stay as-is.
+    The existing "only PeriodReportStrategy in scope for MVP"
+    sentence in constitution Principle II provides cover -
+    Principle II describes the future contract; this feature just
+    doesn't implement IsoWeek yet.
+  - No constitution bump was triggered (the v2.0.1 amendment
+    earlier today already covers the project's wording cleanup;
+    the scope-down is contained to feature artifacts).
+  - The drop of one round-trip test case (IsoWeek payload binding)
+    does not violate FR-026 (every DTO must round-trip): the
+    IsoWeekReportData DTO doesn't exist in this feature, so FR-026
+    has nothing to enforce on it. When the IsoWeek strategy ships,
+    its feature slice will add the DTO and the round-trip test
+    together.
+
+Open follow-ups / not yet done:
+  - /speckit-implement 001-domain-entities-dtos can now execute
+    against the Period-only contract surface. 30 tasks.
+  - All edits (constitution v2.0.1 amendment, CLAUDE.md cleanup,
+    tasks.md generation, IsoWeek scope-down sweep across 7 feature
+    files) remain uncommitted on the 001-domain-entities-dtos
+    branch. A single /speckit-git-commit would land them as one
+    cohesive checkpoint.
+
+=========================================================================
+Timestamp: 2026-05-21
+Model / tool: Claude Code (Opus 4.7, 1M context) - manual edits
+-------------------------------------------------------------------------
+Prompt:
+  Don't forget to update ai-artifacts/agent_log.txt with our
+  conversations.
+
+AI suggestion:
+  Appended the four immediately-preceding turn entries to
+  ai-artifacts/agent_log.txt - the halted /speckit-implement
+  attempt, the /speckit-constitution PATCH (v2.0.0 -> v2.0.1), the
+  /speckit-tasks generation (31 tasks initially), and the IsoWeek
+  scope-down sweep (tasks reduced to 30). This entry is the
+  realization of the constitution Principle V deliverable for this
+  conversation.
+
+Decision: Accepted.
+
+Reason:
+  - Constitution Principle V (AI-Assisted Development Transparency)
+    mandates that every meaningful AI interaction be logged to this
+    file; the four prior turns each made non-trivial design or
+    structural changes and therefore qualified. Logging them in
+    one append-batch (rather than per-turn) is acceptable here
+    because the user explicitly asked at this moment.
+  - This entry itself is logged (per the spirit of the principle -
+    "every meaningful interaction") to keep the log self-consistent;
+    the act of writing the log is a non-trivial AI-driven write.
+
+Open follow-ups / not yet done:
+  - User to decide whether to run /speckit-git-commit to checkpoint
+    today's work, or to run /speckit-implement 001-domain-entities-
+    dtos directly and let the commit happen after implementation.
+
+=========================================================================
+Timestamp: 2026-05-21
+Model / tool: Claude Code (Opus 4.7, 1M context) via /speckit-implement
+-------------------------------------------------------------------------
+Prompt:
+  /speckit-implement (no skill args; feature 001-domain-entities-dtos
+  is the current branch and the speckit-implement skill resolved it
+  automatically via .specify/scripts/powershell/check-prerequisites.ps1).
+
+AI suggestion:
+  Executed the 30-task plan in specs/001-domain-entities-dtos/tasks.md
+  end to end. All 30 tasks moved from [ ] to [X]; both production
+  projects and both populated test projects build clean and all tests
+  pass.
+
+  Files created (production code, 14 files):
+    src/backend/FinanceTracker/Finance.Data/Models/TransactionType.cs
+    src/backend/FinanceTracker/Finance.Data/Models/CategoryType.cs
+    src/backend/FinanceTracker/Finance.Data/Models/Transaction.cs
+    src/backend/FinanceTracker/Finance.Data/Models/Category.cs
+    src/backend/FinanceTracker/Finance.Business/Enums/ReportType.cs
+    src/backend/FinanceTracker/Finance.Business/JsonSerializationOptions.cs
+    src/backend/FinanceTracker/Finance.Business/Dtos/Transactions/CategorySummary.cs
+    src/backend/FinanceTracker/Finance.Business/Dtos/Transactions/TransactionCreateRequest.cs
+    src/backend/FinanceTracker/Finance.Business/Dtos/Transactions/TransactionResponse.cs
+    src/backend/FinanceTracker/Finance.Business/Dtos/Categories/CategoryCreateRequest.cs
+    src/backend/FinanceTracker/Finance.Business/Dtos/Categories/CategoryResponse.cs
+    src/backend/FinanceTracker/Finance.Business/Dtos/Reports/PeriodReportData.cs
+    src/backend/FinanceTracker/Finance.Business/Dtos/Reports/CategoryBreakdownItem.cs
+    src/backend/FinanceTracker/Finance.Business/Dtos/Reports/ReportResult.cs
+    src/backend/FinanceTracker/Finance.Business/Dtos/Reports/ReportRequest.cs
+    src/backend/FinanceTracker/Finance.Business/Mappers/CategoryMapper.cs
+    src/backend/FinanceTracker/Finance.Business/Mappers/TransactionMapper.cs
+
+  Files created (tests, 7 files):
+    src/backend/FinanceTracker/tests/Finance.Data.UnitTests/TransactionTests.cs
+    src/backend/FinanceTracker/tests/Finance.Data.UnitTests/CategoryTests.cs
+    src/backend/FinanceTracker/tests/Finance.Business.UnitTests/Dtos/TransactionResponseRoundTripTests.cs
+    src/backend/FinanceTracker/tests/Finance.Business.UnitTests/Dtos/ReportResultRoundTripTests.cs
+    src/backend/FinanceTracker/tests/Finance.Business.UnitTests/Dtos/ReportRequestRoundTripTests.cs
+    src/backend/FinanceTracker/tests/Finance.Business.UnitTests/Mappers/CategoryMapperTests.cs
+    src/backend/FinanceTracker/tests/Finance.Business.UnitTests/Mappers/TransactionMapperTests.cs
+
+  Files updated:
+    src/backend/FinanceTracker/tests/Finance.Data.UnitTests/Finance.Data.UnitTests.csproj
+      (added <ProjectReference> to Finance.Data)
+    src/backend/FinanceTracker/tests/Finance.Business.UnitTests/Finance.Business.UnitTests.csproj
+      (added <ProjectReference>s to Finance.Business and Finance.Data)
+    specs/001-domain-entities-dtos/tasks.md
+      (all 30 tasks marked [X])
+
+  T001 (Finance.Business -> Finance.Data <ProjectReference>) was already
+  present in the existing Finance.Business.csproj before this run, so
+  the task list reflects the existing state by marking it [X] without
+  a file edit.
+
+  Build + test results:
+    dotnet build src/backend/FinanceTracker/FinanceTracker.slnx
+      Result: Build succeeded. 0 Warning(s) 0 Error(s). All seven
+      projects (3 production + 4 test) link cleanly against net10.0.
+
+    Finance.Data.UnitTests.exe (direct invocation):
+      Total: 8, Errors: 0, Failed: 0, Skipped: 0, Time: 0.208s
+      Coverage:
+        TransactionTests:
+          - Construct_with_all_fields_exposes_each_field_as_supplied
+          - Two_transactions_with_same_data_but_different_ids_are_not_equal
+          - CategoryIds_is_assignable_to_IReadOnlyList_of_int
+          - Multi_category_transaction_preserves_CategoryIds_order
+        CategoryTests:
+          - Construct_with_each_CategoryType_exposes_fields_as_supplied
+            (Theory, 3 InlineData rows: Income, Expense, Both)
+          - Names_differing_only_by_case_compare_equal_under_OrdinalIgnoreCase
+
+    Finance.Business.UnitTests.exe (direct invocation):
+      Total: 11, Errors: 0, Failed: 0, Skipped: 0, Time: 0.283s
+      Coverage:
+        TransactionResponseRoundTripTests:
+          - Serialize_emits_camelCase_fields_with_transactionType_and_ordered_categories
+          - Deserialize_back_into_TransactionResponse_round_trips_every_field
+        ReportResultRoundTripTests:
+          - README_IsoWeek_2026_W20_example_serializes_field_for_field
+          - Empty_period_ReportResult_emits_empty_categoryBreakdown_not_null
+        ReportRequestRoundTripTests:
+          - Period_request_from_README_round_trips_through_envelope_and_typed_payload
+          - Unknown_ReportType_value_throws_JsonException_at_binding
+        CategoryMapperTests:
+          - ToResponse_copies_the_three_fields
+          - ToEntity_carries_assigned_id_and_preserves_other_fields
+        TransactionMapperTests:
+          - ToResponse_maps_scalar_fields_and_builds_Categories_in_CategoryIds_order
+          - ToResponse_throws_KeyNotFoundException_when_category_lookup_misses
+          - ToEntity_carries_assigned_id_and_preserves_CategoryIds_from_README_example
+            (this test deserializes the README's literal
+            TransactionCreateRequest payload, satisfying US3's
+            Independent Test by reference per quickstart.md S6)
+
+    Total tests: 19 across two projects, all green.
+
+  Notes on judgment calls made during implementation:
+
+  1. [JsonPropertyName("transactionType")] applied to the `Type`
+     property on both TransactionCreateRequest and TransactionResponse.
+     The README's example payloads (and spec FR-027 / US3 Independent
+     Test) require the wire-form field to be `transactionType`, not
+     `type`. With the camelCase naming policy in
+     JsonSerializationOptions.Default, the default would collide on
+     `type`. Used the records' [property: JsonPropertyName(...)]
+     attribute target so the positional property carries the
+     annotation. On report DTOs (ReportRequest / ReportResult /
+     ReportType), `Type` correctly serializes as `type` (matching the
+     README examples), so no annotation is needed there.
+
+  2. TransactionMapper.ToResponse uses an explicit for-loop over
+     CategoryIds rather than LINQ Select(...).AsReadOnly(), so the
+     KeyNotFoundException is thrown at the moment the missing id is
+     encountered (not when an enumerator is later materialized). This
+     also makes the error path step-debuggable. The result is wrapped
+     in `.AsReadOnly()` to enforce the read-only contract surface.
+
+  3. Tests use `Assert.Collection` for the ordered breakdown
+     assertion in ReportResultRoundTripTests rather than a single
+     `Assert.Equal(expected[], actual[])`, so any breakdown ordering
+     regression in the future will show a precise per-position
+     diagnostic.
+
+  4. `dotnet test src/backend/FinanceTracker/FinanceTracker.slnx`
+     completed with exit code 0 but produced no output in this
+     environment (xUnit v3 + .slnx + the PowerShell test runner
+     apparently swallows console output when invoked through
+     `dotnet test`; the underlying tests do execute). Direct
+     invocation of the two test exes (Finance.Data.UnitTests.exe
+     and Finance.Business.UnitTests.exe) produced the expected xUnit
+     v3 In-Process Runner banners and per-project summaries. This is
+     a runner-output quirk, not a test correctness issue; results
+     are consistent across both invocation paths.
+
+Decision: Accepted. All 30 tasks complete; feature
+  001-domain-entities-dtos is implementation-complete and ready for
+  review.
+
+Reason:
+  - The 30-task plan was followed phase-by-phase per the task
+    dependencies. No tasks were skipped, dropped, or re-ordered.
+    Each phase's checkpoint condition (build clean, then targeted
+    test green) was verified before the next phase began.
+  - Constitution principles all upheld:
+      I. Dependency direction Api -> Business -> Data preserved; no
+         API code added (Finance.Api untouched). All DTOs live in
+         Business; both mappers live in Business and reference Data
+         entities directly. Data layer has no DTO references.
+      II. Report envelope is the typed { ReportType, JsonElement }
+         shape. PeriodReportData is the only fully-defined per-type
+         payload in this feature; the IsoWeek-as-future-value
+         scoping decision from the 2026-05-21 revision is honored.
+      III. Identifiers are `int` throughout; Transaction.Timestamp
+         is full DateTime (year-second precision); CategoryIds is
+         non-empty IReadOnlyList<int>; no `currency` field appears
+         anywhere; deterministic seed IDs aren't established yet
+         because repositories are out of scope for this feature.
+      IV. Tests live under src/backend/FinanceTracker/tests/ in the
+         two populated projects (Finance.Data.UnitTests and
+         Finance.Business.UnitTests); the other two test projects
+         remain empty per the feature scope. All assertions use
+         Xunit.Assert; no FluentAssertions referenced.
+      V. This log entry is the Principle V deliverable for the
+         implementation run.
+  - Optional after_implement hook (speckit.git.commit) is surfaced
+    in the speckit-implement output but not auto-executed.
+
+Open follow-ups / not yet done:
+  - All edits across today's session (constitution v2.0.1
+    amendment, CLAUDE.md cleanup, tasks.md generation, IsoWeek
+    scope-down sweep, this feature's implementation) remain
+    uncommitted on the 001-domain-entities-dtos branch. A single
+    /speckit-git-commit (or a manual commit) would land them as
+    one cohesive checkpoint.
+  - Next feature scheduled (per the feature roadmap): the in-memory
+    repository slice. It consumes Transaction and Category from
+    this feature, registers InMemoryTransactionRepository and
+    InMemoryCategoryRepository as DI singletons in Finance.Data,
+    and seeds deterministic int IDs. After that the
+    transactions/categories endpoints feature lands, and then the
+    period-report-strategy feature.
+  - The two ai-artifacts/Specifications/*.md files remain out of
+    sync per the user-directed deferral; they'll be reconciled
+    when their corresponding features are scheduled.
