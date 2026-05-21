@@ -2051,3 +2051,140 @@ Open follow-ups / not yet done:
   - The two ai-artifacts/Specifications/*.md files remain out of
     sync per the user-directed deferral; they'll be reconciled
     when their corresponding features are scheduled.
+
+=========================================================================
+Timestamp: 2026-05-21
+Model / tool: Claude Code (Opus 4.7, 1M context)
+-------------------------------------------------------------------------
+Prompt:
+  /speckit-specify on the in-memory repositories feature -> follow-up
+  question on whether categories should be modifiable/deletable ->
+  /speckit-plan -> /speckit-tasks -> /speckit-implement, run end-to-end
+  with the ai-artifacts/Specifications/in-memory-repository-spec.md as
+  a reference (but expected to defer to CLAUDE.md / specs/001 where
+  the older spec disagrees on int IDs / DateTime / multi-category).
+
+AI suggestion:
+  Generated feature 002-in-memory-repositories end-to-end:
+   - spec.md with 3 prioritized user stories (P1 seed-on-start,
+     P2 runtime writes, P3 lookup/delete) and 12 FRs. Scope narrowed
+     vs. ai-artifacts spec: HTTP endpoints, DTOs, and business
+     validation (Amount > 0, referential integrity, type compat)
+     explicitly deferred to a later feature; the repository's only
+     intrinsic invariant is case-insensitive category-name uniqueness.
+   - plan.md with all-PASS Constitution Check (v2.0.1) and empty
+     Complexity Tracking. Concrete file paths, 7 design decisions
+     resolved in research.md.
+   - research.md decisions:
+      1. Seed timestamps at noon local on each seed date (safe from
+         the [start 00:00:00, end 23:59:59] bound case the future
+         period strategy uses internally).
+      2. _nextId starts at 6, increments only on the success path
+         of Add (so a rejected duplicate-name add doesn't consume an
+         id - delivers spec FR-007 / SC-005).
+      3. Plain List<T> + linear scan; no Dictionary index. The
+         50ms-per-read SC-004 bar is trivially met at this scale,
+         and one source of truth beats two.
+      4. No locking, no concurrent collections; spec Assumption #6
+         explicitly scopes concurrency to single-process serial.
+      5. T? GetById / bool Delete idioms; never throw on miss.
+      6. Validation split: repository owns only case-insensitive
+         category-name uniqueness. Everything else (Amount > 0,
+         referential integrity, multi-category type compatibility)
+         lives in the business layer per constitution Principle III's
+         "Validation enforcement of this rule is a Business-layer
+         concern" bullet.
+      7. Two raw AddSingleton<...> lines in Program.cs; no extension
+         method (only 2 registrations, not worth the abstraction).
+   - data-model.md with full C# signatures, the canonical seed table
+     (5 categories ids 1-5, 5 transactions ids 1-5 at 2026-05-NN
+     12:00:00), and the test list (11 unit tests + perf smoke).
+   - contracts/repository-contracts.md documenting the behavioral
+     contract for each interface member (preconditions, post-
+     conditions, never-throws guarantees) with a contract-test
+     mapping table.
+   - quickstart.md with build/test commands, verification checklist,
+     and a manual sanity-check session script.
+   - tasks.md with 17 tasks across 6 phases (Setup, Foundational,
+     US1, US2, US3, Polish) using the strict
+     "- [ ] T### [P?] [Story?] Description path" format.
+   Implementation produced:
+   - Finance.Data/Repositories/{I,InMemory}{Transaction,Category}
+     Repository.cs (4 files, ~120 lines production code).
+   - tests/Finance.Data.UnitTests/Repositories/ with 3 test files
+     and 14 new [Fact] tests (5 US1 + 4 US2 + 4 US3 + 1 perf smoke).
+   - Program.cs: 2 AddSingleton lines + 1 using directive.
+   - Final test count: 22 in Finance.Data.UnitTests (8 from feat 001
+     + 14 new) all green; 11 in Finance.Business.UnitTests unchanged
+     and green; the two Finance.Api test projects intentionally
+     empty per scope.
+
+Decision: Accepted, with two course-corrections during execution:
+  (a) The new test files needed an explicit `using Xunit;` directive
+      - implicit usings don't surface the xUnit attributes. Matched
+      the convention from feature 001's existing test files.
+  (b) Added <PackageReference Include="Microsoft.Extensions.Dependency
+      Injection" Version="10.0.0" /> to Finance.Data.UnitTests.csproj
+      to support the RepositoryLifetimeTests singleton-resolution
+      test. The plan claimed "no new NuGet packages" - this is the
+      one minor deviation. Justification: the singleton-lifetime
+      property is the load-bearing piece of constitution Principle
+      III, and proving it without a real ServiceCollection means
+      either dropping the test or pulling in WebApplicationFactory
+      from Microsoft.AspNetCore.Mvc.Testing (much heavier). The DI
+      primitives package is ~25KB, official, and is exactly the
+      right shape for this single test.
+
+Decision on the follow-up question ("shouldn't categories be
+modifiable?"):
+  - The user picked "Keep categories append-only (current spec)"
+    over rename-only / full CRUD / rename + reject-if-referenced.
+    The append-only stance carried through to the implementation:
+    ICategoryRepository has GetAll/GetById/Add only, no Delete and
+    no Update.
+
+Reason:
+  I. Three-Layer Architecture Boundaries: interfaces + InMemory
+     implementations in Finance.Data; DI composition in
+     Finance.Api/Program.cs only. Finance.Business untouched.
+     Finance.Api -> Finance.Business -> Finance.Data dependency
+     direction preserved (Program.cs's `using Finance.Data.
+     Repositories;` resolves via the transitive reference).
+ II. Report Factory + Strategy Pattern: untouched. The repositories
+     expose GetAll on transactions in a shape that the future
+     PeriodReportStrategy can filter by timestamp range and
+     aggregate from - no aggregation logic leaks into Data.
+III. Seeded In-Memory Determinism: singleton lifetime wired in
+     Program.cs (and verified by a unit test using a real
+     ServiceCollection). Identifiers are int (no Guid anywhere).
+     Seed ids are deterministic literals 1-5. Transaction.Timestamp
+     is full DateTime (year-second). Transaction.CategoryIds is
+     stored as the input non-empty list. Case-insensitive category-
+     name uniqueness via StringComparer.OrdinalIgnoreCase.
+     No `currency` field. No persistent store.
+ IV. Test-First with xUnit v3: tests written first (red phase
+     verified - they failed to compile before the implementations
+     landed). Built-in Xunit.Assert only - no FluentAssertions,
+     no Shouldly. Test suite for Finance.Data.UnitTests runs in
+     0.208s (spec SC-002 bar is 5s).
+  V. This log entry is the Principle V deliverable for the
+     implementation run.
+
+Open follow-ups / not yet done:
+  - All edits for feature 002 (spec / plan / research / data-model /
+    contracts / quickstart / tasks / implementation across Finance.
+    Data and Finance.Api and Finance.Data.UnitTests) sit on the
+    002-in-memory-repositories branch uncommitted. A single
+    /speckit-git-commit would land them as one cohesive checkpoint.
+  - Next features in the roadmap: transactions/categories HTTP
+    endpoints (controllers + business-layer validators - that
+    feature is where Amount > 0, referential integrity, and the
+    multi-category compatibility rule actually get enforced).
+    Period report strategy lands after that.
+  - The ai-artifacts/Specifications/in-memory-repository-spec.md
+    is still phrased against the old design (Guid, DateOnly, single
+    CategoryId, FluentAssertions). Per the user-directed deferral
+    in the constitution's Sync Impact Report, it stays untouched
+    until reconciled in a dedicated cleanup; the spec/plan/tasks
+    artifacts under specs/002-in-memory-repositories/ supersede it
+    where they conflict.
