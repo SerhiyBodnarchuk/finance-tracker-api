@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://finance-tracker-api.local/contracts/report-request.schema.json",
+  "title": "ReportRequest",
+  "description": "Envelope for POST /api/reports. Exactly two fields: 'type' (a closed enum from ReportType) and 'data' (a typed payload whose schema is selected by 'type'). MVP scope: only the 'Period' report type has a defined payload DTO; 'IsoWeek' is a documented future enum value whose payload schema (IsoWeekReportData) will be added together with its strategy in a later feature.",
+  "type": "object",
+  "additionalProperties": false,
+  "unevaluatedProperties": false,
+  "required": ["type", "data"],
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": ["Period", "IsoWeek"],
+      "description": "ReportType enum value. Period is the only fully-defined value in this feature; IsoWeek is reserved for a future feature and its payload shape is intentionally not constrained here."
+    },
+    "data": {
+      "type": "object",
+      "description": "Per-type payload. See the if/then branch below for the Period schema. IsoWeek payload (data.week) is documented in the README and will be schema-defined when the IsoWeek strategy ships."
+    }
+  },
+  "allOf": [
+    {
+      "if":   { "properties": { "type": { "const": "Period" } } },
+      "then": { "properties": { "data": { "$ref": "#/$defs/PeriodReportData" } } }
+    }
+  ],
+  "$defs": {
+    "PeriodReportData": {
+      "type": "object",
+      "additionalProperties": false,
+      "unevaluatedProperties": false,
+      "required": ["start", "end"],
+      "properties": {
+        "start": {
+          "type": "string",
+          "format": "date",
+          "description": "Inclusive lower bound, calendar date (yyyy-MM-dd). The strategy interprets the period as [start 00:00:00, end 23:59:59] against transaction timestamps."
+        },
+        "end": {
+          "type": "string",
+          "format": "date"
+        }
+      },
+      "examples": [
+        { "start": "2026-05-01", "end": "2026-05-31" }
+      ]
+    }
+  },
+  "examples": [
+    { "type": "Period", "data": { "start": "2026-05-01", "end": "2026-05-31" } }
+  ]
+}

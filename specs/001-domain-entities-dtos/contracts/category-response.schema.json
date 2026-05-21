@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://finance-tracker-api.local/contracts/category-response.schema.json",
+  "title": "CategoryResponse",
+  "type": "object",
+  "additionalProperties": false,
+  "unevaluatedProperties": false,
+  "required": ["id", "name", "type"],
+  "properties": {
+    "id":   { "type": "integer", "minimum": 1 },
+    "name": { "type": "string",  "minLength": 1 },
+    "type": { "type": "string",  "enum": ["Income", "Expense", "Both"] }
+  },
+  "examples": [
+    { "id": 1, "name": "Salary",    "type": "Income"  },
+    { "id": 2, "name": "Groceries", "type": "Expense" }
+  ]
+}

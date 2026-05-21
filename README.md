@@ -1,12 +1,22 @@
 # finance-tracker-api
 
-Single-user .NET personal finance API with SQL Server persistence, period-based reports, CI tests, and MCP-style context replay for AI-assisted development.
+Single-user .NET personal finance API with seeded in-memory storage, period-based reports, CI tests, and MCP-style context replay for AI-assisted development.
 
 ## Overview
 
 `finance-tracker-api` is an API-only personal finance manager built as a pet project for practicing AI-assisted development with Cursor / Claude Code.
 
-The application helps a single local user track income and expenses, assign categories, generate summaries for any time period, view category breakdowns, and export data. A second part of the project extends the API with an MCP-style context workflow to make AI-assisted transaction categorization and code changes more deterministic, testable, and replayable.
+The application helps a single local user track income and expenses, assign categories, generate reports for requested time periods, view category breakdowns, and export report results.
+
+The project intentionally uses seeded in-memory storage instead of a persistent database. Data is reset every time the application restarts. This keeps the MVP focused on business logic, report generation, test coverage, AI-assisted development workflow, and MCP-style context replay.
+
+The project uses a simple three-layer architecture:
+
+```text
+API -> Business -> Data
+```
+
+A later part of the project extends the API with an MCP-style context workflow to make AI-assisted transaction categorization and code changes more deterministic, testable, and replayable.
 
 ## Goals
 
@@ -20,39 +30,200 @@ The project has two main goals:
 | Layer | Technology |
 |---|---|
 | Framework | ASP.NET Core Web API |
+| Runtime | .NET 10 |
 | Language | C# |
-| ORM | Entity Framework Core |
-| Database | SQL Server / LocalDB |
-| Testing | xUnit + FluentAssertions |
+| Architecture | Three-layer architecture: API, Business, Data |
+| API docs | Microsoft.AspNetCore.OpenApi + Scalar.AspNetCore |
+| Storage | Seeded in-memory repositories (data resets on restart by design) |
+| Testing | xUnit v3 (built-in `Xunit.Assert`; no FluentAssertions) |
 | CI | GitHub Actions |
 
-For automated tests the project uses an in-memory or lightweight test database provider to avoid requiring a local SQL Server instance in CI.
+No SQL Server, EF Core, Docker, LocalDB, or database migrations are required.
+
+## Architecture
+
+The solution should be organized into three main layers.
+
+```text
+finance-tracker-api/
+  src/
+    backend/
+      FinanceTracker/
+        FinanceTracker.slnx
+        Finance.Api/
+        Finance.Business/
+        Finance.Data/
+        Finance.Tests/            (planned)
+  ai-artifacts/
+    Specifications/
+      in-memory-repository-spec.md
+      period-report-strategy-spec.md
+    context_schema.md             (placeholder)
+    example_context_snapshot.json (placeholder)
+    agent_log.txt                 (placeholder)
+  .github/
+    workflows/
+      ci.yml                      (planned)
+  CLAUDE.md
+  README.md
+```
+
+### API Layer
+
+Project: `Finance.Api`
+
+Responsibilities:
+
+- HTTP controllers or minimal API endpoints
+- Request/response HTTP concerns
+- Model binding (reusing Business-layer DTOs directly)
+- Status code mapping
+- OpenAPI document + Scalar reference UI (dev-only)
+- Dependency injection composition
+- No business aggregation logic
+- No direct in-memory data manipulation
+- API-specific models are added here only when there is a concrete need beyond the Business-layer DTOs (none for the MVP)
+
+The API layer depends on the Business layer.
+
+### Business Layer
+
+Project: `Finance.Business`
+
+Responsibilities:
+
+- Request and response DTOs (records) for transactions, categories, and reports — the API layer reuses them directly
+- Mappers between Data-layer domain entities and the DTOs above (trivial 1:1 for the MVP; their purpose is the layer boundary, not data transformation)
+- Report factories
+- Report strategies
+- Business services
+- Validation rules for report requests
+- Aggregation logic
+- Export formatting contracts, if needed
+- MCP workflow abstractions later
+
+The Business layer depends on the Data layer.
+
+### Data Layer
+
+Project: `Finance.Data`
+
+Responsibilities:
+
+- Domain models
+- Repository interfaces
+- Seeded in-memory repository implementations
+- Seed data
+- Domain enums such as transaction type
+
+The Data layer should not depend on the API or Business layers.
+
+## Dependency Direction
+
+Allowed dependency direction:
+
+```text
+Finance.Api -> Finance.Business -> Finance.Data
+```
+
+Avoid reverse dependencies:
+
+```text
+Finance.Data -> Finance.Business
+Finance.Data -> Finance.Api
+Finance.Business -> Finance.Api
+```
 
 ## Scope
 
-This is a **single-user personal finance API**.
+This is a single-user personal finance API.
 
-**In scope:**
+### In scope
+
 - Create and list transactions
 - Create and list categories
 - Assign categories to transactions
-- Generate weekly/monthly income and expense summaries
-- Generate category breakdowns
-- Export data as JSON or CSV
+- Generate reports through a factory + strategy design
+- Support an initial custom period report
+- Add additional report types later, such as ISO week and month reports
+- Generate category breakdowns inside reports
+- Export report results as JSON or CSV using content negotiation
+- Use seeded in-memory data on application startup
 - Add MCP-style context snapshots for deterministic transaction categorization
 - Log AI-assisted development decisions
 
+### Out of scope
+
+- Frontend UI
+- Authentication
+- Authorization
+- Multi-user support
+- Persistent database storage
+- SQL Server setup
+- EF Core migrations
+- Docker
+- LocalDB
+- Bank integrations
+- Payment integrations
+- Real financial advice
+
 ## Core Domain
 
-| Entity | Description |
-|---|---|
-| `Transaction` | A single income or expense entry |
-| `Category` | Groups transactions (e.g. Groceries, Transport, Salary) |
-| `Report` | Aggregated income/expense totals for a given period |
-| `CategoryBreakdown` | Per-category totals within a time range |
-| `FinanceContextSnapshot` | MCP-style snapshot used for AI-assisted categorization |
+Domain entities and the two related enums live in the Data layer.
 
-Example categories: Groceries, Transport, Entertainment, Salary, Utilities, etc.
+| Type | Kind | Description |
+|---|---|---|
+| `Transaction` | Entity (record) | A single income or expense entry. Carries an `int` Id, a full `DateTime` timestamp (year–second precision), description, positive `decimal` amount, a `TransactionType`, and a **non-empty `IReadOnlyList<int>` of category references** (a transaction may be tagged with one or more categories). |
+| `Category` | Entity (record) | Groups transactions, for example Groceries, Transport, Salary. Carries an `int` Id, name, and a `CategoryType`. |
+| `TransactionType` | Enum | `Income` or `Expense`. An attribute on `Transaction` — not a standalone entity. |
+| `CategoryType` | Enum | `Income`, `Expense`, or `Both`. An attribute on `Category` — not a standalone entity. |
+| `ReportType` | Enum | `Period`, `IsoWeek` (extensible later). An attribute on `ReportRequest` that discriminates the request's `data` payload. |
+
+Identifiers are `int` (not `Guid`); all amounts are USD (no currency field is stored or returned).
+
+**Multi-category compatibility rule** (enforced by validation, not by the contract): every category attached to a transaction must be compatible with the transaction's direction — i.e., an `Expense` transaction MAY be tagged with any combination of `Expense`/`Both` categories but MUST NOT include any `Income`-only category, and symmetrically for `Income`.
+
+DTOs (records) and report contracts live in the Business layer. The API layer reuses them directly.
+
+| Business Contract | Description |
+|---|---|
+| `TransactionCreateRequest` / `TransactionResponse` | DTOs for the transactions endpoint. `TransactionResponse` carries an inline `categories` collection (each item: `{ id, name }`). |
+| `CategoryCreateRequest` / `CategoryResponse` | DTOs for the categories endpoint |
+| `ReportRequest` | Envelope: `{ type: ReportType, data: <per-type payload> }` |
+| `PeriodReportData` | Used when `type = Period`. Fields: `start` (date), `end` (date) — both inclusive. |
+| `IsoWeekReportData` | Used when `type = IsoWeek`. Field: `week` (ISO 8601 week string, e.g. `"2026-W19"`). |
+| `ReportResult` | The aggregated report response. Carries `type`, `period` (string descriptor — `"yyyy-Www"` for ISO-week, `"yyyy-MM-dd..yyyy-MM-dd"` for custom period), `incomeTotal`, `expenseTotal`, `netTotal`, and `categoryBreakdown`. Does **not** return the underlying transactions. Computed on demand; never persisted. |
+| `CategoryBreakdownItem` | A row in `ReportResult.categoryBreakdown`. Two fields: `category` (name) and `total` (signed decimal — sign carries direction). No transaction count. |
+| `FinanceContextSnapshot` | MCP-style snapshot used for AI-assisted categorization and replay |
+
+Trivial 1:1 mappers between the domain entities and their DTOs (e.g., `TransactionMapper`, `CategoryMapper`) also live in the Business layer, alongside the report-strategy implementations that filter, aggregate, and build the breakdown.
+
+Example categories:
+
+- Groceries
+- Transport
+- Entertainment
+- Salary
+- Utilities
+
+## Storage Model
+
+The API uses in-memory repositories in the Data layer.
+
+Data is seeded when the application starts and is lost when the application stops.
+
+This is intentional because the project is a one-time assignment MVP. The focus is on:
+
+- API behavior
+- three-layer architecture
+- report strategy design
+- aggregation logic
+- test coverage
+- CI execution
+- AI-assisted development documentation
+- MCP-style context replay
+
+Persistence can be added later behind repository interfaces if needed.
 
 ## API Endpoints
 
@@ -65,14 +236,12 @@ DELETE /api/transactions/{id}
 GET    /api/categories
 POST   /api/categories
 
-GET    /api/reports/weekly?weekStart=2026-05-04
-GET    /api/reports/categories?from=2026-05-01&to=2026-05-31
+POST   /api/reports
 
-GET    /api/export/json
-GET    /api/export/csv
+POST   /api/export
 ```
 
-MCP-style endpoints:
+Optional MCP-style endpoints or internal services:
 
 ```http
 POST /api/mcp/context
@@ -82,35 +251,218 @@ POST /api/mcp/confirm
 POST /api/mcp/rollback
 ```
 
+The MCP implementation may be kept as an internal C# service instead of public HTTP endpoints.
+
+## Reports
+
+Reports are generated through a single endpoint:
+
+```http
+POST /api/reports
+Content-Type: application/json
+Accept: application/json
+```
+
+The request body is an envelope of exactly two fields: `type` (a `ReportType` enum value) and `data` (a payload whose shape depends on `type`). The response is an **aggregated summary** — totals plus a per-category breakdown. The underlying transactions are **not** returned; a consumer that needs them queries the transactions endpoint with a date filter separately.
+
+Initial supported report type:
+
+| Type | `data` fields | Description |
+|---|---|---|
+| `Period` | `start` (date), `end` (date) | Aggregates transactions whose timestamp falls in `[start, end]` (inclusive on both ends, interpreted as `start 00:00:00 .. end 23:59:59`). |
+
+Planned future report types:
+
+| Type | `data` fields | Description |
+|---|---|---|
+| `IsoWeek` | `week` (string, ISO 8601 — e.g., `"2026-W19"`) | Aggregates transactions whose timestamp falls in the named ISO week. |
+| `Month` | `year` (int), `month` (int) | Aggregates transactions whose timestamp falls in the calendar month. |
+
+### ISO-week report example
+
+Request:
+
+```json
+{
+  "type": "IsoWeek",
+  "data": {
+    "week": "2026-W20"
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "type": "IsoWeek",
+  "period": "2026-W20",
+  "incomeTotal": 1200.00,
+  "expenseTotal": 430.50,
+  "netTotal": 769.50,
+  "categoryBreakdown": [
+    { "category": "Salary",     "total":  1200.00 },
+    { "category": "Dining out", "total":   -65.25 },
+    { "category": "Groceries",  "total":  -180.25 },
+    { "category": "Transport",  "total":   -65.00 },
+    { "category": "Utilities",  "total":  -120.00 }
+  ]
+}
+```
+
+`categoryBreakdown` is ordered with income-side categories first (positive `total`), then expense-side categories (negative `total`); within each of those groups items are sorted by category name ascending. The `total` field is **signed** — the sign is the only direction indicator; there is no separate direction field and no transaction count.
+
+### Period report example
+
+Request:
+
+```json
+{
+  "type": "Period",
+  "data": {
+    "start": "2026-05-01",
+    "end": "2026-05-31"
+  }
+}
+```
+
+Response (same `ReportResult` shape; `period` is the stringified inclusive range):
+
+```json
+{
+  "type": "Period",
+  "period": "2026-05-01..2026-05-31",
+  "incomeTotal": 1200.00,
+  "expenseTotal": 121.29,
+  "netTotal": 1078.71,
+  "categoryBreakdown": [
+    { "category": "Salary",      "total":  1200.00 },
+    { "category": "Entertainment","total":   -9.99 },
+    { "category": "Groceries",   "total":   -32.10 },
+    { "category": "Transport",   "total":   -14.20 },
+    { "category": "Utilities",   "total":   -65.00 }
+  ]
+}
+```
+
+`data.start` and `data.end` are calendar dates (`yyyy-MM-dd`); transactions carry full timestamps and the strategy treats the period as `[start 00:00:00, end 23:59:59]` inclusive. All amounts are USD; no `currency` field is returned.
+
+**Multi-category attribution**: when a transaction is tagged with multiple categories, its full signed amount is added to **each** of those categories' breakdown lines (a $20 grocery run tagged "Groceries" + "Health Food" adds −$20 to both). As a result, the arithmetic sum of `categoryBreakdown[*].total` may exceed (in absolute value) `netTotal` whenever multi-category transactions are present — this is expected.
+
+## Report Architecture
+
+Reports use a factory + strategy design in the Business layer.
+
+The API controller receives a generic report request:
+
+```json
+{
+  "type": "period",
+  "parameters": {
+    "from": "2026-05-01",
+    "to": "2026-05-31"
+  }
+}
+```
+
+The request is passed to a report strategy factory.
+
+The factory selects a strategy by report type.
+
+Example strategies:
+
+- `PeriodReportStrategy`
+- `IsoWeekReportStrategy`
+- `MonthReportStrategy`
+
+This design keeps each report type isolated and makes it easy to add new report types using an AI coding assistant.
+
+The reusable AI skill for this project should focus on generating a new report strategy, parameter parsing, factory registration, and unit tests for a new report type.
+
+## Export
+
+Reports can be exported through a single endpoint:
+
+```http
+POST /api/export
+```
+
+The request body contains a report request.
+
+The response format is selected through the `Accept` header.
+
+### JSON export
+
+```http
+POST /api/export
+Content-Type: application/json
+Accept: application/json
+```
+
+Request body:
+
+```json
+{
+  "report": {
+    "type": "period",
+    "parameters": {
+      "from": "2026-05-01",
+      "to": "2026-05-31"
+    }
+  }
+}
+```
+
+### CSV export
+
+```http
+POST /api/export
+Content-Type: application/json
+Accept: text/csv
+```
+
+Request body:
+
+```json
+{
+  "report": {
+    "type": "period",
+    "parameters": {
+      "from": "2026-05-01",
+      "to": "2026-05-31"
+    }
+  }
+}
+```
+
+Exports should export the generated report result, not the raw internal repository state.
+
 ## MCP-Style Workflow
 
 The MCP-style extension provides structured context to an AI agent, replacing one-shot plain prompts with a deterministic, replayable loop.
 
-**Context may include:**
-- Finance profile (currency, timezone)
+Context may include:
+
+- Finance profile, such as currency and timezone
 - Category mappings
 - Pending transactions
 - Previous categorization decisions
 - Verification rules
 - Redacted fields
 
-## Repository Structure
+Normal flow:
 
+```text
+sendContext -> requestAction -> receiveResult -> verify -> confirm
 ```
-finance-tracker-api/
-  src/
-    Finance.Api/
-  tests/
-    Finance.Api.Tests/
-  artifacts/
-    context_schema.md
-    example_context_snapshot.json
-    agent_log.txt
-  .github/
-    workflows/
-      ci.yml
-  README.md
+
+Failure/refinement flow:
+
+```text
+sendContext -> requestAction -> receiveResult -> verify failed -> refine -> confirm or rollback
 ```
+
+The purpose is to prove that structured context makes AI-assisted work more reproducible than plain prompts.
 
 ## Artifacts
 
@@ -118,40 +470,36 @@ The `artifacts/` folder contains documentation required for the assignment.
 
 | File | Purpose |
 |---|---|
-| `context_schema.md` | MCP context schema — field purposes, TTL, redaction rules, pruning rules, verification rules |
+| `context_schema.md` | MCP context schema: field purposes, TTL, redaction rules, pruning rules, verification rules |
 | `example_context_snapshot.json` | Safe example MCP context snapshot with sample category mappings and pending transactions |
-| `agent_log.txt` | AI-assisted development log — accepted/rejected suggestions with reasoning |
+| `agent_log.txt` | AI-assisted development log: accepted/rejected suggestions with reasoning |
 
 ## Running Locally
 
-**Prerequisites:**
-- .NET SDK
-- SQL Server LocalDB or another local SQL Server instance
+Prerequisites:
 
-```bash
+- .NET SDK
+
+No database setup is required.
+
+```powershell
+cd src/backend/FinanceTracker
 dotnet restore
 dotnet build
 dotnet test
-dotnet run --project src/Finance.Api
+dotnet run --project Finance.Api
 ```
 
-The API exposes Swagger in development mode:
+The API exposes its OpenAPI document and the Scalar reference UI in Development mode only:
 
-```
-https://localhost:5001/swagger
-```
-
-## Database
-
-The application uses SQL Server for local development.
-
-Example connection string for SQL Server LocalDB:
-
-```
-Server=(localdb)\MSSQLLocalDB;Database=FinanceTrackerDb;Trusted_Connection=True;MultipleActiveResultSets=true
+```text
+https://localhost:7266/openapi/v1.json   (OpenAPI document)
+https://localhost:7266/scalar/v1         (Scalar UI)
 ```
 
-Configure the connection string via `appsettings.Development.json`, user secrets, or environment variables. Do not commit real secrets or production connection strings.
+The HTTP binding (`http://localhost:5235`) is also available; see `Finance.Api/Properties/launchSettings.json` for current ports.
+
+Data is seeded on startup. Restarting the application resets the data.
 
 ## Testing
 
@@ -159,12 +507,17 @@ The test suite covers:
 
 - Transaction creation and validation
 - Category creation and validation
-- Weekly and period aggregation logic (including boundary edge cases)
+- Repository behavior
+- Report strategy selection
+- Period report generation
+- Boundary edge cases for report periods
 - Category breakdown logic
-- Export logic (JSON and CSV)
+- Export logic for JSON and CSV
 - MCP context serialization
 - MCP replay consistency
 - Sensitive-field redaction
+
+Run tests:
 
 ```bash
 dotnet test
@@ -172,7 +525,9 @@ dotnet test
 
 ## CI
 
-GitHub Actions runs on every push and pull request:
+> Status: **planned, not yet implemented.** `.github/workflows/ci.yml` does not exist yet and will be added once the test project lands.
+
+When added, GitHub Actions will run on every push and pull request:
 
 ```bash
 dotnet restore
@@ -180,31 +535,90 @@ dotnet build --no-restore
 dotnet test --no-build
 ```
 
-The CI pipeline does not require real secrets or a live database.
+The CI pipeline does not require real secrets, Docker, SQL Server, LocalDB, or any external database.
 
 ## AI-Assisted Development Log
 
-Every meaningful AI interaction is logged in `artifacts/agent_log.txt`.
+Every meaningful AI interaction is logged in:
+
+```text
+artifacts/agent_log.txt
+```
 
 Each entry includes:
 
 | Field | Description |
 |---|---|
 | Timestamp | When the interaction occurred |
-| Model / tool | e.g. Claude Sonnet 4.5, Cursor Agent |
+| Model / tool | Example: Claude Sonnet, Cursor Agent |
 | Prompt | What was asked |
 | AI suggestion | What the AI proposed |
 | Decision | Accepted or rejected |
-| Reason | Why |
+| Reason | Why the suggestion was accepted or rejected |
 
 The goal is not to accept all AI suggestions, but to evaluate them critically and document the reasoning.
+
+## Suggested AI Skill
+
+The reusable skill for this project should be:
+
+```text
+report-strategy-scaffold
+```
+
+Purpose:
+
+```text
+Given a report type, request parameters, and expected output shape, generate a C# report strategy, parameter parser, factory registration, and xUnit tests for valid input, invalid input, and aggregation edge cases.
+```
+
+Example future use:
+
+```text
+Create a report strategy for report type "isoWeek".
+
+Input parameters:
+- year: int
+- week: int
+
+Rules:
+- Use ISO 8601 week boundaries.
+- Include transactions from Monday through Sunday.
+- Return income total, expense total, net total, category breakdown, and matching transactions.
+
+Generate:
+- IsoWeekReportStrategy
+- parameter parser
+- factory registration
+- xUnit tests for valid week, invalid week, and boundary dates
+```
 
 ## Security and Privacy
 
 This project must not store or expose:
-- Bank account numbers or card numbers
+
+- Bank account numbers
+- Card numbers
 - Real personal identifiers
-- API keys, passwords, or access tokens
+- API keys
+- Passwords
+- Access tokens
 - Production secrets
 
 Transaction descriptions may contain sensitive information. MCP context snapshots support pruning and redaction to prevent accidental leakage.
+
+## Project Status
+
+Initial MVP planning stage.
+
+Planned milestones:
+
+1. ~~Create three projects: API, Business, and Data.~~ ✅ Done — `Finance.Api`, `Finance.Business`, `Finance.Data` scaffolded under `src/backend/FinanceTracker/` and wired with project references.
+2. Add in-memory repositories with seeded transactions and categories in the Data layer.
+3. Add transaction and category endpoints in the API layer.
+4. Add report factory and initial period report strategy in the Business layer.
+5. Add JSON and CSV export endpoint using content negotiation.
+6. Add unit and integration tests.
+7. Add GitHub Actions CI.
+8. Add MCP-style context snapshot and replay flow.
+9. Complete assignment artifacts and demo recording.

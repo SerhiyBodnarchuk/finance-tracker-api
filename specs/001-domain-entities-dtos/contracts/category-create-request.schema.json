@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://finance-tracker-api.local/contracts/category-create-request.schema.json",
+  "title": "CategoryCreateRequest",
+  "description": "Body of POST /api/categories. The server assigns the Id; the client never supplies one.",
+  "type": "object",
+  "additionalProperties": false,
+  "unevaluatedProperties": false,
+  "required": ["name", "type"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Display name. Case-insensitive duplicate detection happens downstream; the contract here permits any non-empty string."
+    },
+    "type": {
+      "type": "string",
+      "enum": ["Income", "Expense", "Both"]
+    }
+  },
+  "examples": [
+    { "name": "Groceries", "type": "Expense" },
+    { "name": "Salary",    "type": "Income"  },
+    { "name": "Refunds",   "type": "Both"    }
+  ]
+}

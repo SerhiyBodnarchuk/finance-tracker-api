@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://finance-tracker-api.local/contracts/report-result.schema.json",
+  "title": "ReportResult",
+  "description": "Response body for POST /api/reports. Always an aggregated summary — never an array of transactions. The underlying transactions are not returned; a consumer that needs them calls /api/transactions with a date filter separately.",
+  "type": "object",
+  "additionalProperties": false,
+  "unevaluatedProperties": false,
+  "required": ["type", "period", "incomeTotal", "expenseTotal", "netTotal", "categoryBreakdown"],
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": ["Period", "IsoWeek"]
+    },
+    "period": {
+      "type": "string",
+      "description": "Short string descriptor of the resolved coverage. 'yyyy-Www' for IsoWeek (e.g., '2026-W20'); 'yyyy-MM-dd..yyyy-MM-dd' for Period. Future report types document their own format.",
+      "examples": ["2026-W20", "2026-05-01..2026-05-31"]
+    },
+    "incomeTotal":  { "type": "number", "minimum": 0, "description": "Sum of Income-direction transaction amounts in the period." },
+    "expenseTotal": { "type": "number", "minimum": 0, "description": "Sum of Expense-direction transaction amounts in the period." },
+    "netTotal":     { "type": "number", "description": "= incomeTotal − expenseTotal. May be negative." },
+    "categoryBreakdown": {
+      "type": "array",
+      "description": "Ordered income-side (positive total) first, then expense-side (negative total); by category name ascending within each group. May be empty when the period contains no transactions.",
+      "items": { "$ref": "#/$defs/CategoryBreakdownItem" }
+    }
+  },
+  "$defs": {
+    "CategoryBreakdownItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "unevaluatedProperties": false,
+      "required": ["category", "total"],
+      "properties": {
+        "category": { "type": "string",  "minLength": 1 },
+        "total":    { "type": "number", "description": "Signed: positive for income-side contribution, negative for expense-side. The sign is the direction indicator." }
+      }
+    }
+  },
+  "examples": [
+    {
+      "type": "IsoWeek",
+      "period": "2026-W20",
+      "incomeTotal": 1200.00,
+      "expenseTotal": 430.50,
+      "netTotal": 769.50,
+      "categoryBreakdown": [
+        { "category": "Salary",     "total":  1200.00 },
+        { "category": "Dining out", "total":   -65.25 },
+        { "category": "Groceries",  "total":  -180.25 },
+        { "category": "Transport",  "total":   -65.00 },
+        { "category": "Utilities",  "total":  -120.00 }
+      ]
+    },
+    {
+      "type": "Period",
+      "period": "2026-05-15..2026-05-15",
+      "incomeTotal": 0,
+      "expenseTotal": 0,
+      "netTotal": 0,
+      "categoryBreakdown": []
+    }
+  ]
+}

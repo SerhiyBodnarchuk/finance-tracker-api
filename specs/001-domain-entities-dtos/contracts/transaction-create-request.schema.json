@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://finance-tracker-api.local/contracts/transaction-create-request.schema.json",
+  "title": "TransactionCreateRequest",
+  "description": "Body of POST /api/transactions. The server assigns the Id; the client never supplies one. The shape is immutable on the client side once constructed.",
+  "type": "object",
+  "additionalProperties": false,
+  "unevaluatedProperties": false,
+  "required": ["timestamp", "description", "amount", "transactionType", "categoryIds"],
+  "properties": {
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Naive local datetime, second precision. Example: '2026-05-07T09:15:00'.",
+      "examples": ["2026-05-07T09:15:00"]
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Required free-text description. Validation enforcement (non-empty) is a downstream concern; the contract permits any string here."
+    },
+    "amount": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "Positive monetary amount in USD. Direction is conveyed by transactionType, not by sign on this field."
+    },
+    "transactionType": {
+      "type": "string",
+      "enum": ["Income", "Expense"]
+    },
+    "categoryIds": {
+      "type": "array",
+      "items": { "type": "integer", "minimum": 1 },
+      "minItems": 1,
+      "description": "Non-empty ordered list of category ids the transaction is tagged with. Duplicates are permitted at the contract level; dedup/compat checks happen downstream."
+    }
+  },
+  "examples": [
+    {
+      "timestamp": "2026-05-07T09:15:00",
+      "description": "Coffee",
+      "amount": 4.50,
+      "transactionType": "Expense",
+      "categoryIds": [3]
+    },
+    {
+      "timestamp": "2026-05-05T18:42:00",
+      "description": "Silpo Market",
+      "amount": 32.10,
+      "transactionType": "Expense",
+      "categoryIds": [2, 6]
+    }
+  ]
+}
