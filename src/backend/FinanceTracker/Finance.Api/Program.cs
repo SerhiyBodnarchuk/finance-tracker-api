@@ -28,6 +28,7 @@ builder.Services.AddSingleton<ITransactionRepository, InMemoryTransactionReposit
 builder.Services.AddSingleton<ICategoryService, CategoryService>();
 builder.Services.AddSingleton<ITransactionService, TransactionService>();
 builder.Services.AddSingleton<IReportStrategy, PeriodReportStrategy>();
+builder.Services.AddSingleton<IReportStrategy, IsoWeekReportStrategy>();
 builder.Services.AddSingleton<IReportStrategyFactory, ReportStrategyFactory>();
 builder.Services.AddSingleton<IReportService, ReportService>();
 builder.Services.AddSingleton<ITransactionValidator, TransactionValidator>();

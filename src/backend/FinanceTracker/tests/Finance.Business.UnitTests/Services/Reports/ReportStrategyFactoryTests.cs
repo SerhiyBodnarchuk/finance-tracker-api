@@ -2,6 +2,8 @@ using System.Text.Json;
 using Finance.Business.Dtos.Reports;
 using Finance.Business.Enums;
 using Finance.Business.Services.Reports;
+using Finance.Data.Repositories;
+using Moq;
 using Xunit;
 
 namespace Finance.Business.UnitTests.Services.Reports;
@@ -42,5 +44,20 @@ public class ReportStrategyFactoryTests
         var b = new StubStrategy(ReportType.Period);
 
         Assert.Throws<ArgumentException>(() => new ReportStrategyFactory(new IReportStrategy[] { a, b }));
+    }
+
+    [Fact]
+    public void Factory_resolves_IsoWeek_to_IsoWeekReportStrategy()
+    {
+        var transactions = new Mock<ITransactionRepository>(MockBehavior.Strict);
+        var categories = new Mock<ICategoryRepository>(MockBehavior.Strict);
+        var isoWeek = new IsoWeekReportStrategy(transactions.Object, categories.Object);
+        var factory = new ReportStrategyFactory(new IReportStrategy[] { isoWeek });
+
+        var resolved = factory.TryGet(ReportType.IsoWeek);
+
+        Assert.NotNull(resolved);
+        Assert.Equal(ReportType.IsoWeek, resolved!.Type);
+        Assert.IsType<IsoWeekReportStrategy>(resolved);
     }
 }

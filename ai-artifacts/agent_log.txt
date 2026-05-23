@@ -3369,3 +3369,81 @@ Open follow-ups / not yet done:
   - Branch 004-report-strategy-scaffold has uncommitted changes
     (SKILL.md, tasks.md edits, this log append). The
     /speckit-implement after_implement hook offers a commit.
+
+=========================================================================
+Timestamp: 2026-05-23
+Model / tool: Claude Code (skill: report-strategy-scaffold)
+-------------------------------------------------------------------------
+Prompt:
+  /report-strategy-scaffold report for isoweek
+
+  [Followed by AskUserQuestion confirming the standard IsoWeek shape
+   from CLAUDE.md: payload { week: string }, range = ISO-8601 Monday-
+   Sunday inclusive, descriptor "yyyy-Www".]
+
+AI suggestion:
+  Scaffold IsoWeekReportStrategy: enum value already present (skip),
+  DTO, strategy, DI line, factory test, unit tests, integration test —
+  all writes applied per file-writes.md row 1-8 allow-list.
+
+  Files written / edited:
+   - src/backend/FinanceTracker/Finance.Business/Dtos/Reports/IsoWeekReportData.cs (new)
+   - src/backend/FinanceTracker/Finance.Business/Services/Reports/IsoWeekReportStrategy.cs (new)
+   - src/backend/FinanceTracker/Finance.Api/Program.cs (one-line DI insertion after PeriodReportStrategy)
+   - src/backend/FinanceTracker/tests/Finance.Business.UnitTests/Services/Reports/IsoWeekReportStrategyTests.cs (new, 11 [Fact]s)
+   - src/backend/FinanceTracker/tests/Finance.Business.UnitTests/Services/Reports/ReportStrategyFactoryTests.cs (one new [Fact] + Finance.Data.Repositories / Moq usings)
+   - src/backend/FinanceTracker/tests/Finance.Api.IntegrationTests/ReportsEndpointTests.cs (one new [Fact])
+
+  Step 1 (enum) was skipped: ReportType.IsoWeek was already declared
+  in Finance.Business/Enums/ReportType.cs from a prior feature, so the
+  file was left untouched per the contract's "If enum value missing"
+  conditional.
+
+  Validator refinement during the test loop: the first build had
+  IsValidIsoWeek calling ISOWeek.ToDateTime inside try/catch. Tests
+  surfaced that ISOWeek.ToDateTime silently spills over for out-of-
+  range weeks (e.g. 2025-W53 returns the next year's W1 instead of
+  throwing). Replaced with an explicit ISOWeek.GetWeeksInYear(year)
+  bound check so 2025-W53 now correctly maps to a 400 error. Inline
+  one-line comment captures the *why* per CLAUDE.md.
+
+  Build: green (only pre-existing xUnit1051 CancellationToken
+  warnings in unrelated test files — no new warnings introduced).
+
+  Tests:
+   - Finance.Data.UnitTests: 22 pass / 0 fail
+   - Finance.Business.UnitTests: 51 pass / 0 fail (includes 11 new
+     IsoWeekReportStrategyTests + 1 new factory test)
+   - Finance.Api.UnitTests: 27 pass / 0 fail
+   - Finance.Api.IntegrationTests: 17 pass / 1 fail
+
+  Single failure:
+   - Finance.Api.IntegrationTests.ReportsEndpointTests
+     .POST_reports_iso_week_returns_400_with_unsupported_type
+   - Reason: this test (added in feature 003) asserted IsoWeek
+     returned HTTP 400 because no strategy was registered. After
+     this scaffold registers IsoWeekReportStrategy in DI, the
+     endpoint now legitimately returns 200, so the assertion is
+     obsolete. The file-writes contract (row 7, "Existing tests
+     untouched") forbids the skill from modifying or deleting it,
+     so this is flagged as a manual follow-up.
+
+Decision: needs-revision
+
+Reason:
+  Build green, unit tests green, but the integration test project
+  has one failure that the skill cannot fix without violating the
+  file-writes contract. The user must hand-delete (or invert) the
+  obsolete POST_reports_iso_week_returns_400_with_unsupported_type
+  test in
+  tests/Finance.Api.IntegrationTests/ReportsEndpointTests.cs.
+  This was pre-flagged in the Plan summary before any writes,
+  so the failure is expected and contained.
+
+Open follow-ups / not yet done:
+  - Delete the now-obsolete POST_reports_iso_week_returns_400
+    _with_unsupported_type integration test (its sister 400-cases
+    for unknown enum values and start>end remain valid). One-line
+    follow-up the user can do as part of the same commit that
+    accepts this scaffold.
+  - No other follow-ups. No skipped [Fact]s, no TODO markers.

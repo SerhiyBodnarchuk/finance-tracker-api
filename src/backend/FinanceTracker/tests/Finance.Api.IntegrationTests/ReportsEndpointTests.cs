@@ -44,21 +44,6 @@ public class ReportsEndpointTests : IClassFixture<ApiTestFixture>
     }
 
     [Fact]
-    public async Task POST_reports_iso_week_returns_400_with_unsupported_type()
-    {
-        using var client = _fixture.CreateConfiguredClient();
-
-        var response = await client.PostAsJsonAsync(
-            "/api/reports",
-            new { type = "IsoWeek", data = new { week = "2026-W19" } },
-            JsonSerializationOptions.Default);
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var body = await response.Content.ReadAsStringAsync();
-        Assert.Contains("Unsupported", body, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
     public async Task POST_reports_unknown_type_returns_400()
     {
         using var client = _fixture.CreateConfiguredClient();
@@ -100,5 +85,22 @@ public class ReportsEndpointTests : IClassFixture<ApiTestFixture>
         var secondBody = await second.Content.ReadAsStringAsync();
 
         Assert.Equal(firstBody, secondBody);
+    }
+
+    [Fact]
+    public async Task POST_reports_iso_week_returns_200_with_summary_for_seed_window()
+    {
+        using var client = _fixture.CreateConfiguredClient();
+
+        var response = await client.PostAsJsonAsync(
+            "/api/reports",
+            new { type = "IsoWeek", data = new { week = "2026-W19" } },
+            JsonSerializationOptions.Default);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<ReportResult>(JsonSerializationOptions.Default);
+        Assert.NotNull(body);
+        Assert.Equal(ReportType.IsoWeek, body!.Type);
+        Assert.Equal("2026-W19", body.Period);
     }
 }
