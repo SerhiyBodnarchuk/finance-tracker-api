@@ -41,7 +41,7 @@ Cross-cutting access rules (constitution Principle I, v3.0.0):
 - **Controllers MUST go through Business services**, not repositories. `TransactionsController` → `ITransactionService`. `CategoriesController` → `ICategoryService`. `ReportsController` → `IReportService` (which itself wraps `IReportStrategyFactory`). Direct `ITransactionRepository` / `ICategoryRepository` injection in controllers is forbidden.
 - **Validators MUST go through Business services**, not repositories. `TransactionValidator` (in `Finance.Api/Infrastructure/Validators/`) depends on `ICategoryService` for the referential-integrity + type-compatibility checks. Same access rule as controllers.
 
-Repositories are registered as **singletons** so in-memory data persists across requests for the app lifetime. Identifiers are `int` (not `Guid`); deterministic seed IDs (e.g., 1, 2, 3…) must be used for seed data so tests can assert on them. Services and validators are also registered as singletons (stateless, repository deps already singleton).
+Repositories are registered as **singletons** so in-memory data persists across requests for the app lifetime. Identifiers are `int` (not `Guid`); deterministic seed IDs (e.g., 1, 2, 3…) must be used for seed data so tests can assert on them. Everything else — services, every `IReportStrategy`, the `ReportStrategyFactory`, `IReportService`, and the validators — is registered as **scoped**. The repositories carry the only process-wide state; everything that depends on them is stateless and gets a fresh instance per request.
 
 ## Report system — the central design pattern
 
@@ -107,6 +107,3 @@ Every meaningful AI interaction (accepted or rejected) is logged to `ai-artifact
 
 SQL Server, EF Core, Docker, LocalDB, database migrations, authentication, authorization, multi-user support, frontend UI, bank/payment integrations. The README's "Out of scope" list is binding for this MVP.
 
-<!-- SPECKIT START -->
-Active feature: [004-report-strategy-scaffold](specs/004-report-strategy-scaffold/plan.md) — Claude Code skill that scaffolds new report types into the existing factory + strategy pipeline. Spec: [spec.md](specs/004-report-strategy-scaffold/spec.md). Constitution v3.0.0 gates: PASS (no violations).
-<!-- SPECKIT END -->
