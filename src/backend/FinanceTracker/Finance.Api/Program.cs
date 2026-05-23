@@ -25,14 +25,14 @@ builder.Services
     });
 builder.Services.AddSingleton<ICategoryRepository, InMemoryCategoryRepository>();
 builder.Services.AddSingleton<ITransactionRepository, InMemoryTransactionRepository>();
-builder.Services.AddSingleton<ICategoryService, CategoryService>();
-builder.Services.AddSingleton<ITransactionService, TransactionService>();
-builder.Services.AddSingleton<IReportStrategy, PeriodReportStrategy>();
-builder.Services.AddSingleton<IReportStrategy, IsoWeekReportStrategy>();
-builder.Services.AddSingleton<IReportStrategyFactory, ReportStrategyFactory>();
-builder.Services.AddSingleton<IReportService, ReportService>();
-builder.Services.AddSingleton<ITransactionValidator, TransactionValidator>();
-builder.Services.AddSingleton<ICategoryValidator, CategoryValidator>();
+builder.Services.AddScoped<ICategoryService, CategoryService>();
+builder.Services.AddScoped<ITransactionService, TransactionService>();
+builder.Services.AddScoped<IReportStrategy, PeriodReportStrategy>();
+builder.Services.AddScoped<IReportStrategy, IsoWeekReportStrategy>();
+builder.Services.AddScoped<IReportStrategyFactory, ReportStrategyFactory>();
+builder.Services.AddScoped<IReportService, ReportService>();
+builder.Services.AddScoped<ITransactionValidator, TransactionValidator>();
+builder.Services.AddScoped<ICategoryValidator, CategoryValidator>();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi(options =>
 {
