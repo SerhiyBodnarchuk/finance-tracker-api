@@ -1,6 +1,88 @@
 <!--
 Sync Impact Report
 ==================
+Version change: 2.0.1 -> 3.0.0
+Bump rationale: MAJOR. Principle I (Three-Layer Architecture Boundaries,
+NON-NEGOTIABLE) is redefined in a backwards-incompatible way:
+- A new application service layer is introduced under
+  Finance.Business/Services/ (ICategoryService, ITransactionService,
+  IReportService and their implementations). Controllers MUST go through
+  services and MUST NOT call repositories directly.
+- Validators move from Finance.Business to
+  Finance.Api/Infrastructure/Validators/. Validators in Finance.Api MUST
+  depend on Business services for any cross-entity data and MUST NOT
+  reference repositories directly (same access rule as controllers).
+- The report system relocates under Finance.Business/Services/Reports/
+  (the ReportStrategyFactory and every IReportStrategy implementation,
+  plus ReportValidationException). Pattern and contracts are unchanged
+  from v2.0.1; only the namespace/folder moves.
+- ValidationResult and ValidationError data shapes remain in
+  Finance.Business/Validation/ because they're consumed both by
+  validators (in Finance.Api) and by ReportValidationException (in
+  Finance.Business); moving them to API would force a Business -> Api
+  reference and break dependency direction.
+
+Drifts ratified (executed across feature 003-transactions-categories-reports
+during the work that triggered this amendment):
+- Drift #A (Principle I) Application service layer introduced; controllers
+  route every data access through services.
+- Drift #B (Principle I) Validators relocated to
+  Finance.Api/Infrastructure/Validators/; depend on services, not repos.
+- Drift #C (Principle I) Reports relocated under
+  Finance.Business/Services/Reports/.
+
+Minor additive changes (bundled with the MAJOR bump):
+- Principle IV: explicit mention of Moq (Moq 4.20.x) for unit-test
+  mocking and Microsoft.AspNetCore.Mvc.Testing for integration tests.
+  Neither is an assertion library; "FluentAssertions is NOT used"
+  remains in force. Two new required coverage bullets: service-layer
+  behaviour (mapping, delegation, exception propagation) and
+  controller-level HTTP shape (status codes, problem-details, Location
+  header) with services mocked.
+- Technology & Scope Constraints "Testing" bullet: same library
+  acknowledgments as Principle IV.
+
+Modified principles:
+- I. Three-Layer Architecture Boundaries (NON-NEGOTIABLE) - drifts #A, #B, #C
+- IV. Test-First with xUnit v3 - additive: Moq + Mvc.Testing
+  acknowledgments, two new required coverage bullets
+
+Renamed principles: none.
+Added sections: none.
+Removed sections: none.
+
+Templates / runtime docs touched:
+- CLAUDE.md - SPECKIT block updated to point at constitution v3.0.0;
+  Architecture rules and file-layout references aligned with the
+  services/validators reorganization.
+- .specify/templates/plan-template.md - no edit required (gates read
+  from constitution at runtime).
+- .specify/templates/spec-template.md - no edit required.
+- .specify/templates/tasks-template.md - no edit required.
+- .specify/templates/checklist-template.md - no edit required.
+- .specify/templates/constitution-template.md - no edit required.
+- README.md - architecture/tech-stack summary remains accurate at the
+  level of detail it uses; no edit required.
+
+Deferred items / known out-of-sync documents (intentionally not edited
+per user direction):
+- ai-artifacts/Specifications/in-memory-repository-spec.md - still
+  pre-amendment.
+- ai-artifacts/Specifications/period-report-strategy-spec.md - still
+  pre-amendment.
+- specs/003-transactions-categories-reports/{spec,plan,research,
+  data-model,contracts/,quickstart,tasks}.md - all describe the
+  feature design at the point of /speckit-plan. The in-flight
+  restructure (services + validators + Moq tests + Mvc.Testing) is
+  documented in ai-artifacts/agent_log.txt rather than back-amended
+  into those spec artifacts. A future spec-cleanup pass can reconcile.
+- .specify/extensions/git/scripts/powershell/initialize-repo.ps1 -
+  Unicode encoding bug under PowerShell 5.1 (Windows); upstream
+  extension issue. The before_constitution hook is a conceptual
+  no-op for an existing repo and was skipped (same precedent as
+  v2.0.0 and v2.0.1).
+
+----------------------------------------------------------------------
 Version change: 2.0.0 -> 2.0.1
 Bump rationale (2.0.1): PATCH. Sweeps three leftover wording inconsistencies
 in the "Technology & Scope Constraints" section that the v2.0.0 amendment
@@ -155,33 +237,63 @@ Each layer owns a disjoint set of responsibilities:
   records) and their related enums (`TransactionType`, `CategoryType` — enums,
   not standalone entities), repository interfaces, and seeded in-memory
   repository implementations. It MUST NOT contain aggregation logic, HTTP
-  concerns, or DTOs.
-- `Finance.Business` owns **all DTOs** — both the HTTP request/response shapes
-  (`TransactionCreateRequest`, `TransactionResponse`, `CategoryCreateRequest`,
-  `CategoryResponse`) and the report contracts (`ReportRequest`,
-  `PeriodReportData`, `IsoWeekReportData`, `ReportResult`,
+  concerns, validators, services, or DTOs.
+- `Finance.Business` owns **all DTOs** — both the HTTP request/response
+  shapes (`TransactionCreateRequest`, `TransactionResponse`,
+  `CategoryCreateRequest`, `CategoryResponse`) and the report contracts
+  (`ReportRequest`, `PeriodReportData`, `IsoWeekReportData`, `ReportResult`,
   `CategoryBreakdownItem`) — plus the `ReportType` enum, the trivial 1:1
   mappers between domain entities and DTOs (`TransactionMapper`,
-  `CategoryMapper`), the centralized `JsonSerializationOptions`, the report
-  factory and strategies, validation, aggregation, and (later) MCP
-  abstractions. It MUST NOT reference ASP.NET Core types or HTTP primitives.
+  `CategoryMapper`), the centralized `JsonSerializationOptions`, the
+  **application service layer** under `Services/` (`ICategoryService`,
+  `ITransactionService`, `IReportService` and their implementations — the
+  layer controllers route through), the **report factory and strategies**
+  under `Services/Reports/` (the `ReportStrategyFactory` plus every
+  `IReportStrategy` implementation, plus `ReportValidationException`),
+  the **validation result data shapes** under `Validation/` (`ValidationResult`,
+  `ValidationError`) consumed by validators in the API layer and by
+  `ReportValidationException` in the Business layer, aggregation logic, and
+  (later) MCP abstractions. It MUST NOT reference ASP.NET Core types or HTTP
+  primitives.
 - `Finance.Api` owns controllers / minimal-API endpoints, model binding
   (reusing the Business-layer DTOs directly), status-code mapping, OpenAPI +
-  Scalar wiring, and DI composition. Controllers MUST delegate aggregation to
-  a Business-layer strategy and MUST NOT touch repositories directly.
+  Scalar wiring, the **`Infrastructure/` folder** (the `ProblemDetailsMappers`
+  helper and the **validators under `Infrastructure/Validators/`** —
+  `ITransactionValidator` / `TransactionValidator` /
+  `ICategoryValidator` / `CategoryValidator`), and DI composition.
   API-specific models MUST NOT be introduced here unless there is a concrete
-  need beyond the Business DTOs (none for the MVP). **The API layer never
-  sees a domain entity** — the Business layer maps `Transaction`/`Category`
-  to the corresponding response DTO before any data crosses the boundary.
+  need beyond the Business DTOs (none for the MVP).
 
-**Rationale**: This separation is the spine of the project and the reason the
-MVP can stay testable without a database. Any aggregation logic in the API
-layer, or any repository access from a controller, breaks both the MCP replay
-story and the test pyramid. Centralising DTOs in the Business layer (rather
-than duplicating them in API) keeps "what the application accepts and emits"
-defined in one place and lets the API stay a thin transport adapter; the
-explicit "API never sees a domain entity" rule is what makes that boundary
-testable in isolation.
+Cross-cutting access rules (NON-NEGOTIABLE):
+
+- Controllers MUST go through Business-layer services
+  (`ITransactionService`, `ICategoryService`, `IReportService`) for all data
+  operations. Controllers MUST NOT reference repositories directly. The
+  controller-to-service-to-repository hop is the spine that keeps
+  aggregation, mapping, and storage concerns separate.
+- Validators in `Finance.Api/Infrastructure/Validators/` MUST depend on
+  Business-layer services for any cross-entity data they need (existence
+  checks, type-compatibility lookups). Validators MUST NOT reference
+  repositories directly — the same access rule that applies to controllers.
+- **The API layer never sees a domain entity.** Services return DTOs;
+  controllers and validators consume DTOs. The Business-layer mappers do
+  the entity-to-DTO conversion at the service boundary, before any data
+  crosses the layer line.
+
+**Rationale**: This separation is the spine of the project and the reason
+the MVP can stay testable without a database. Any aggregation logic in the
+API layer, or any repository access from a controller or validator, breaks
+both the MCP replay story and the test pyramid. Centralising DTOs and
+services in the Business layer (rather than duplicating either in API)
+keeps "what the application accepts and emits" defined in one place and
+lets the API stay a thin transport adapter. Placing validators in the API
+layer (a v3.0.0 redefinition of the v2.0.1 wording that put them in Business)
+reflects that validators are HTTP-shaped concerns — they translate request
+DTOs into `ValidationProblemDetails`, which only makes sense at the API
+boundary. The *rules* they enforce still come from Business (compatibility
+tables, existence checks via services), but the executors live where their
+output is consumed. The explicit "API never sees a domain entity" rule is
+what makes that boundary testable in isolation.
 
 ### II. Report Factory + Strategy Pattern (NON-NEGOTIABLE)
 
@@ -312,10 +424,14 @@ production project (`Finance.Data.UnitTests`, `Finance.Business.UnitTests`,
 project for end-to-end API coverage. All four MUST use **xUnit v3**
 (`xunit.v3`, `OutputType=Exe`) as the runner and the **built-in
 `Xunit.Assert` API** for assertions. **FluentAssertions is NOT used in this
-project** — no third-party assertion library is referenced. Tests SHOULD be
-written before or alongside the production code they exercise; a feature is
-not "done" until its test coverage compiles, runs, and passes locally and in
-CI.
+project** — no third-party assertion library is referenced. Mocking in unit
+tests uses **Moq** (`Moq` 4.20.x) where the system under test needs to be
+isolated from its collaborators; integration tests against the API use
+**`Microsoft.AspNetCore.Mvc.Testing`**'s `WebApplicationFactory<Program>`.
+Both are test-only dependencies and MUST NOT be referenced from production
+code. Tests SHOULD be written before or alongside the production code they
+exercise; a feature is not "done" until its test coverage compiles, runs,
+and passes locally and in CI.
 
 Required coverage areas (the test suite MUST contain at least one test per
 bullet):
@@ -330,6 +446,15 @@ bullet):
   `Finance.Business.UnitTests`).
 - Entity ↔ DTO mapper correctness for `TransactionMapper` and `CategoryMapper`
   (in `Finance.Business.UnitTests`).
+- Application-service behaviour (`CategoryService`, `TransactionService`,
+  `ReportService`): mapping, delegation to repositories / strategies, and
+  exception propagation for cross-cutting policies like the duplicate-name
+  conflict. Repositories MUST be mocked (Moq) so each test exercises exactly
+  the service. (In `Finance.Business.UnitTests`.)
+- Controller-level HTTP shape (status code mapping, `Location` header on
+  201 Created, `ProblemDetails` / `ValidationProblemDetails` composition on
+  400/404/409, short-circuit when validation fails). Services and validators
+  MUST be mocked (Moq). (In `Finance.Api.UnitTests`.)
 - Category creation and validation, including case-insensitive duplicate
   rejection (in `Finance.Business.UnitTests` or `Finance.Data.UnitTests`
   depending on the layer that enforces the rule).
@@ -410,7 +535,10 @@ MUST go through the amendment process in Governance.
 - API documentation: `Microsoft.AspNetCore.OpenApi` +
   `Scalar.AspNetCore`. Swashbuckle MUST NOT be reintroduced.
 - Testing: **xUnit v3** with the built-in `Xunit.Assert` API
-  (see Principle IV). FluentAssertions is NOT used.
+  (see Principle IV). FluentAssertions is NOT used. Mocking via **Moq**
+  (`Moq` 4.20.x) for unit tests; integration tests use
+  **`Microsoft.AspNetCore.Mvc.Testing`**'s `WebApplicationFactory<Program>`.
+  Both are test-only and MUST NOT be referenced from production code.
 - CI: GitHub Actions, at `.github/workflows/ci.yml`, with no external
   dependencies.
 
@@ -502,4 +630,4 @@ lives in `CLAUDE.md`. Where `CLAUDE.md` adds operational detail beyond this
 constitution, that detail is authoritative for behaviour; where the two
 disagree on a principle, this constitution governs.
 
-**Version**: 2.0.1 | **Ratified**: 2026-05-18 | **Last Amended**: 2026-05-21
+**Version**: 3.0.0 | **Ratified**: 2026-05-18 | **Last Amended**: 2026-05-21

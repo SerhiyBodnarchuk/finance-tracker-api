@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://finance-tracker-api/specs/003/transactions-endpoints.schema.json",
+  "title": "Transactions endpoints (request and response shapes)",
+  "description": "Schemas for GET/POST/DELETE under /api/transactions. Status-code behavior is documented in http-endpoints.md.",
+
+  "$defs": {
+    "TransactionType": {
+      "type": "string",
+      "enum": ["Income", "Expense"]
+    },
+
+    "CategorySummary": {
+      "type": "object",
+      "required": ["id", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "integer", "minimum": 1 },
+        "name": { "type": "string", "minLength": 1 }
+      }
+    },
+
+    "TransactionCreateRequest": {
+      "type": "object",
+      "required": ["timestamp", "description", "amount", "transactionType", "categoryIds"],
+      "additionalProperties": true,
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 date-time. Year-second precision in local clock."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Non-empty after trim. FR-010."
+        },
+        "amount": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Strictly greater than zero. Direction is encoded in transactionType. FR-009."
+        },
+        "transactionType": { "$ref": "#/$defs/TransactionType" },
+        "categoryIds": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "integer", "minimum": 1 },
+          "description": "Non-empty list of existing category ids; each must be type-compatible with transactionType. FR-011..FR-013."
+        }
+      }
+    },
+
+    "TransactionResponse": {
+      "type": "object",
+      "required": ["id", "timestamp", "description", "amount", "transactionType", "categories"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "integer", "minimum": 1 },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "description": { "type": "string", "minLength": 1 },
+        "amount": { "type": "number", "exclusiveMinimum": 0 },
+        "transactionType": { "$ref": "#/$defs/TransactionType" },
+        "categories": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/CategorySummary" }
+        }
+      }
+    }
+  },
+
+  "oneOf": [
+    {
+      "title": "GET /api/transactions response (200)",
+      "type": "array",
+      "items": { "$ref": "#/$defs/TransactionResponse" }
+    },
+    {
+      "title": "GET /api/transactions/{id} response (200)",
+      "$ref": "#/$defs/TransactionResponse"
+    },
+    {
+      "title": "POST /api/transactions request body",
+      "$ref": "#/$defs/TransactionCreateRequest"
+    }
+  ]
+}

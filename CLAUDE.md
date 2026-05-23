@@ -6,39 +6,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A single-user .NET Web API personal finance tracker, built as a one-week AI-assisted-development pet project. Tracks transactions and categories, generates period reports with category breakdowns, and exports JSON/CSV. Storage is seeded in-memory only — there is intentionally no database, no auth, no UI, and no multi-user support. A later milestone layers an MCP-style context/replay workflow on top of the API.
 
-`README.md` is the canonical product/architecture spec. The two files under `ai-artifacts/Specifications/` are the per-feature contracts the AI is meant to implement (`in-memory-repository-spec.md`, `period-report-strategy-spec.md`) — they pin down field names, validation rules, seed data, and required test cases.
-
-> **Note (2026-05-19)**: those two ai-artifacts specs predate the current design and are partially **out of date**. The newer spec at `specs/001-domain-entities-dtos/spec.md` (plus this file and `README.md`) is the authoritative source for:
->  - identifier type (`int`, not `Guid`)
->  - transaction date precision (full `DateTime`, not `DateOnly`)
->  - multi-category transactions (`Transaction.CategoryIds` is a non-empty `IReadOnlyList<int>`, not a single `CategoryId`)
->  - `ReportType` enum (`Period`, `IsoWeek`) replacing the open-string `type` field
->  - report request envelope: `{ type, data }` with a typed per-`ReportType` `data` payload (`PeriodReportData { start, end }`, `IsoWeekReportData { week }`) — `parameters`, `from`/`to` are renamed
->  - `ReportResult` is an aggregated summary: `type` + `period` (string descriptor) + `incomeTotal` + `expenseTotal` + `netTotal` + a `categoryBreakdown` collection. The underlying transactions are **not** returned. `CategoryBreakdownItem` has just `category` (name) + `total` (signed decimal — sign carries direction); no transaction count, no direction field. Multi-category transactions contribute their full signed amount to *each* attached category's breakdown line. No `currency` field. (Earlier revisions of this note said the result was just a list of transactions or earlier still that it carried the original totals/breakdown plus a transactions array — the current shape is neither.)
->  - DTO placement (Business layer, not API)
->  - ad-hoc reports (never persisted)
->
-> Treat the ai-artifacts specs as background context but defer to the newer spec wherever they conflict, until they are reconciled when their corresponding features are scheduled.
-
-## Current state vs. spec — important
-
-The repository is at the very start of implementation. Most things described in README.md don't exist yet:
-
-- `src/backend/FinanceTracker/Finance.Api/Controllers/` contains only the default `WeatherForecastController.cs` scaffold — no `TransactionsController`, `CategoriesController`, `ReportsController`, or `ExportController` yet.
-- `Finance.Business` and `Finance.Data` projects exist and are wired with project references, but contain **no source files** — no domain models, repositories, strategies, or factory.
-- Four test projects exist under `src/backend/FinanceTracker/tests/` (`Finance.Data.UnitTests`, `Finance.Business.UnitTests`, `Finance.Api.UnitTests`, `Finance.Api.IntegrationTests`) as bare xUnit v3 scaffolds (`xunit.v3` 3.2.2, `OutputType=Exe`). They have **no `ProjectReference`s** yet — the in-progress `001-domain-entities-dtos` feature adds those to the first two and writes their test files. Assertions use the built-in `Xunit.Assert` API; **FluentAssertions is NOT used** in this project (constitution drift; see [specs/001-domain-entities-dtos/plan.md](specs/001-domain-entities-dtos/plan.md)).
-- `.github/workflows/` is empty — no `ci.yml` yet.
-- `ai-artifacts/agent_log.txt`, `context_schema.md`, and `example_context_snapshot.json` are empty placeholders.
-
-Treat the README and specs as a design brief, not a description of running code.
+The authoritative documents are: `.specify/memory/constitution.md` (project principles and non-negotiables), this file (day-to-day operational guidance), and `README.md` (product/architecture overview). The two files under `ai-artifacts/Specifications/` are early design briefs and are intentionally not kept in sync with the running code — defer to the constitution and this file where they conflict.
 
 ## Layout reference
 
-Real on-disk layout (README is now aligned with this):
-
 - Solution file: `src/backend/FinanceTracker/FinanceTracker.slnx`.
-- Projects: `Finance.Api`, `Finance.Business`, `Finance.Data` under `src/backend/FinanceTracker/`. A `Finance.Tests` project is planned but not yet created.
-- AI artifacts: `ai-artifacts/` (specs under `ai-artifacts/Specifications/`).
+- Three production projects under `src/backend/FinanceTracker/`: `Finance.Api`, `Finance.Business`, `Finance.Data`.
+- Four test projects under `src/backend/FinanceTracker/tests/`: `Finance.Data.UnitTests`, `Finance.Business.UnitTests`, `Finance.Api.UnitTests`, `Finance.Api.IntegrationTests`.
+- AI artifacts: `ai-artifacts/` (early specs under `ai-artifacts/Specifications/`; running log in `agent_log.txt`).
 - Kestrel binding (dev): `https://localhost:7266` / `http://localhost:5235` — see `Finance.Api/Properties/launchSettings.json`.
 
 ## API docs: Scalar, not Swagger
@@ -58,10 +33,15 @@ Finance.Api → Finance.Business → Finance.Data
 ```
 
 - `Finance.Data` owns domain entities (`Transaction`, `Category` — both records) and their related enums (`TransactionType`, `CategoryType` — **enums**, not standalone entities), plus repository interfaces and the seeded `InMemory*Repository` implementations. The `Transaction` record carries `IReadOnlyList<int> CategoryIds` (non-empty) — a transaction may belong to one or more categories. The Data layer must not reference Business or Api.
-- `Finance.Business` owns **all DTOs** (records) — both the HTTP request/response shapes (`TransactionCreateRequest`/`TransactionResponse`, `CategoryCreateRequest`/`CategoryResponse`) and the report contracts (`ReportRequest`, `PeriodReportData`, `IsoWeekReportData`, `ReportResult`, `CategoryBreakdownItem`) — plus the `ReportType` enum, the trivial 1:1 mappers between domain entities and DTOs (`TransactionMapper`, `CategoryMapper`), all report aggregation logic (filtering, summing totals, building the per-category breakdown, sorting it), the report **factory + strategy** pattern, validation, and MCP abstractions later. It must not reference Api. **The API layer never sees a domain entity** — mapping from `Transaction`/`Category` to `TransactionResponse`/`CategoryResponse` happens here, before the result crosses the layer boundary.
-- `Finance.Api` owns controllers/minimal-API endpoints, model binding (reusing the Business-layer DTOs directly), status-code mapping, OpenAPI/Scalar setup, and DI composition. **No aggregation logic in controllers** — controllers receive a request, ask the factory for a strategy, run it, return the result. API-specific models are added here only when there is a concrete need beyond the Business-layer DTOs (none for the MVP).
+- `Finance.Business` owns **all DTOs** (records) — both the HTTP request/response shapes (`TransactionCreateRequest`/`TransactionResponse`, `CategoryCreateRequest`/`CategoryResponse`) and the report contracts (`ReportRequest`, `PeriodReportData`, `IsoWeekReportData`, `ReportResult`, `CategoryBreakdownItem`) — plus the `ReportType` enum, the trivial 1:1 mappers between domain entities and DTOs (`TransactionMapper`, `CategoryMapper`), the **application service layer** under `Services/` (`ICategoryService`, `ITransactionService`, `IReportService` + implementations), all report aggregation logic and the **factory + strategy** pattern under `Services/Reports/` (`ReportStrategyFactory`, every `IReportStrategy` implementation, `ReportValidationException`), the **validation result data shapes** under `Validation/` (`ValidationResult`, `ValidationError` — the shapes consumed by API-layer validators and by `ReportValidationException`), and MCP abstractions later. It must not reference Api. **The API layer never sees a domain entity** — mapping from `Transaction`/`Category` to `TransactionResponse`/`CategoryResponse` happens inside the services, before the result crosses the layer boundary.
+- `Finance.Api` owns controllers/minimal-API endpoints, model binding (reusing the Business-layer DTOs directly), status-code mapping, OpenAPI/Scalar setup, the **`Infrastructure/` folder** (the `ProblemDetailsMappers` helper and the validators under `Infrastructure/Validators/`: `ITransactionValidator`/`TransactionValidator`/`ICategoryValidator`/`CategoryValidator`), and DI composition. **No aggregation or storage access in controllers** — controllers depend on `ITransactionService` / `ICategoryService` / `IReportService` (and on a validator for `POST` endpoints), and translate the service's return values to HTTP. API-specific models are added here only when there is a concrete need beyond the Business-layer DTOs (none for the MVP).
 
-Repositories are registered as **singletons** so in-memory data persists across requests for the app lifetime. Identifiers are `int` (not `Guid`); deterministic seed IDs (e.g., 1, 2, 3…) must be used for seed data so tests can assert on them.
+Cross-cutting access rules (constitution Principle I, v3.0.0):
+
+- **Controllers MUST go through Business services**, not repositories. `TransactionsController` → `ITransactionService`. `CategoriesController` → `ICategoryService`. `ReportsController` → `IReportService` (which itself wraps `IReportStrategyFactory`). Direct `ITransactionRepository` / `ICategoryRepository` injection in controllers is forbidden.
+- **Validators MUST go through Business services**, not repositories. `TransactionValidator` (in `Finance.Api/Infrastructure/Validators/`) depends on `ICategoryService` for the referential-integrity + type-compatibility checks. Same access rule as controllers.
+
+Repositories are registered as **singletons** so in-memory data persists across requests for the app lifetime. Identifiers are `int` (not `Guid`); deterministic seed IDs (e.g., 1, 2, 3…) must be used for seed data so tests can assert on them. Services and validators are also registered as singletons (stateless, repository deps already singleton).
 
 ## Report system — the central design pattern
 
@@ -75,7 +55,7 @@ A `ReportStrategyFactory` resolves the `ReportType` enum value to an `IReportStr
 
 **`ReportResult` is an aggregated summary, not a transaction list.** It carries `type`, `period` (string descriptor), `incomeTotal`, `expenseTotal`, `netTotal`, and `categoryBreakdown` — and that's all. The contributing transactions are not in the response; a consumer that needs them queries `/api/transactions` with a date filter separately.
 
-Aggregation rules that are easy to get wrong (full list in `ai-artifacts/Specifications/period-report-strategy-spec.md` — but see the note at the top of this file about what is now out of date there):
+Aggregation rules that are easy to get wrong:
 
 - `data.start` / `data.end` (Period) are **calendar dates** (`yyyy-MM-dd`), inclusive on both ends. Transactions carry full `DateTime` timestamps (year–second precision), so the strategy treats the range as `[start 00:00:00, end 23:59:59]` and includes any transaction whose timestamp falls inside it.
 - For `IsoWeek`, the strategy parses `data.week` (e.g., `"2026-W19"`) into the Monday–Sunday date range and applies the same `[from 00:00:00, to 23:59:59]` rule.
@@ -117,7 +97,7 @@ A single test (once a test project exists) — xUnit fully-qualified name filter
 dotnet test --filter "FullyQualifiedName~PeriodReportStrategyTests.Excludes_transactions_outside_range"
 ```
 
-Tests use **xUnit v3** (`xunit.v3`) with the built-in `Xunit.Assert` API for assertions. **No FluentAssertions** — the ai-artifacts/Specifications/*.md files still reference FluentAssertions, but the project moved off it (see [specs/001-domain-entities-dtos/plan.md](specs/001-domain-entities-dtos/plan.md) drift #6). Use `Assert.Equal`, `Assert.True`, `Assert.Throws<T>`, `Assert.Collection`, etc. CI (planned at `.github/workflows/ci.yml`) runs `dotnet restore` → `dotnet build --no-restore` → `dotnet test --no-build` with no external dependencies.
+Tests use **xUnit v3** (`xunit.v3`) with the built-in `Xunit.Assert` API for assertions. **No FluentAssertions** anywhere in the project. Use `Assert.Equal`, `Assert.True`, `Assert.Throws<T>`, `Assert.Collection`, etc. Unit tests use **Moq** 4.20.x to isolate the system under test from its collaborators (strict-mode mocks for both `Finance.Business.UnitTests` and `Finance.Api.UnitTests`); integration tests in `Finance.Api.IntegrationTests` use **`Microsoft.AspNetCore.Mvc.Testing`** + `WebApplicationFactory<Program>`. Both are test-only and never referenced from production code. The test folder structure mirrors production layout 1:1 (e.g. `Finance.Business/Services/CategoryService.cs` → `Finance.Business.UnitTests/Services/CategoryServiceTests.cs`). CI (planned at `.github/workflows/ci.yml`) runs `dotnet restore` → `dotnet build --no-restore` → `dotnet test --no-build` with no external dependencies.
 
 ## AI-assisted development log
 
@@ -128,11 +108,5 @@ Every meaningful AI interaction (accepted or rejected) is logged to `ai-artifact
 SQL Server, EF Core, Docker, LocalDB, database migrations, authentication, authorization, multi-user support, frontend UI, bank/payment integrations. The README's "Out of scope" list is binding for this MVP.
 
 <!-- SPECKIT START -->
-**Current feature**: `002-in-memory-repositories` ([spec.md](specs/002-in-memory-repositories/spec.md), [plan.md](specs/002-in-memory-repositories/plan.md))
-
-For technologies in use, project structure, shell commands, and Phase 0/1 design decisions, read [specs/002-in-memory-repositories/plan.md](specs/002-in-memory-repositories/plan.md) first. Supporting artifacts: [research.md](specs/002-in-memory-repositories/research.md), [data-model.md](specs/002-in-memory-repositories/data-model.md), [contracts/repository-contracts.md](specs/002-in-memory-repositories/contracts/repository-contracts.md), [quickstart.md](specs/002-in-memory-repositories/quickstart.md).
-
-> The plan's Constitution Check passes against [.specify/memory/constitution.md](.specify/memory/constitution.md) **v2.0.1** (ratified 2026-05-18, last amended 2026-05-21) — all five principles PASS with no drifts and an empty Complexity Tracking section. Repositories live in `Finance.Data/Repositories/`, are registered as singletons in `Program.cs`, use deterministic literal seed ids (categories 1–5, transactions 1–5) with `_nextId = 6`, and enforce only the case-insensitive category-name uniqueness invariant — all other validation (`Amount > 0`, referential integrity, type compatibility) is deferred to the business layer in the next feature. `/speckit-tasks` is unblocked.
-
-> The previous feature `001-domain-entities-dtos` ([spec.md](specs/001-domain-entities-dtos/spec.md), [plan.md](specs/001-domain-entities-dtos/plan.md)) shipped the `Transaction` / `Category` records, the three enums (`TransactionType`, `CategoryType`, `ReportType`), the request/response and report DTOs in `Finance.Business`, the mappers, and the unit-test coverage for all of those. This feature consumes those entities and does not modify them.
+<!-- Populated by /speckit-plan with a pointer to the current feature's plan.md. No active feature. -->
 <!-- SPECKIT END -->

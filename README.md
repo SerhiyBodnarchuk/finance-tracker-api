@@ -35,7 +35,7 @@ The project has two main goals:
 | Architecture | Three-layer architecture: API, Business, Data |
 | API docs | Microsoft.AspNetCore.OpenApi + Scalar.AspNetCore |
 | Storage | Seeded in-memory repositories (data resets on restart by design) |
-| Testing | xUnit v3 (built-in `Xunit.Assert`; no FluentAssertions) |
+| Testing | xUnit v3 (built-in `Xunit.Assert`; no FluentAssertions). Moq for unit-test isolation; `Microsoft.AspNetCore.Mvc.Testing` for integration tests |
 | CI | GitHub Actions |
 
 No SQL Server, EF Core, Docker, LocalDB, or database migrations are required.
@@ -50,10 +50,14 @@ finance-tracker-api/
     backend/
       FinanceTracker/
         FinanceTracker.slnx
-        Finance.Api/
-        Finance.Business/
-        Finance.Data/
-        Finance.Tests/            (planned)
+        Finance.Api/              (Controllers/, Infrastructure/Validators/, Program.cs)
+        Finance.Business/         (Dtos/, Mappers/, Services/, Services/Reports/, Validation/, Enums/)
+        Finance.Data/             (Models/, Repositories/)
+        tests/
+          Finance.Data.UnitTests/
+          Finance.Business.UnitTests/      (Services/, Services/Reports/, Dtos/, Mappers/)
+          Finance.Api.UnitTests/           (Controllers/, Infrastructure/Validators/)
+          Finance.Api.IntegrationTests/    (WebApplicationFactory<Program>-based)
   ai-artifacts/
     Specifications/
       in-memory-repository-spec.md
@@ -80,8 +84,10 @@ Responsibilities:
 - Status code mapping
 - OpenAPI document + Scalar reference UI (dev-only)
 - Dependency injection composition
+- Validators under `Infrastructure/Validators/` that translate request DTOs into `ValidationProblemDetails`; they depend on Business-layer services (not on repositories)
+- Problem-details mappers and other HTTP-shaped plumbing under `Infrastructure/`
 - No business aggregation logic
-- No direct in-memory data manipulation
+- No direct in-memory data manipulation (controllers and validators MUST go through Business services)
 - API-specific models are added here only when there is a concrete need beyond the Business-layer DTOs (none for the MVP)
 
 The API layer depends on the Business layer.
@@ -94,10 +100,9 @@ Responsibilities:
 
 - Request and response DTOs (records) for transactions, categories, and reports — the API layer reuses them directly
 - Mappers between Data-layer domain entities and the DTOs above (trivial 1:1 for the MVP; their purpose is the layer boundary, not data transformation)
-- Report factories
-- Report strategies
-- Business services
-- Validation rules for report requests
+- Application services under `Services/` (`ICategoryService`, `ITransactionService`, `IReportService`) — the layer controllers route through; services return DTOs and do the entity-to-DTO mapping internally
+- Report factory + strategies under `Services/Reports/` (`ReportStrategyFactory`, each `IReportStrategy` implementation, `ReportValidationException`)
+- Validation result data shapes under `Validation/` (`ValidationResult`, `ValidationError`) — consumed by validators in the API layer and by `ReportValidationException` in the Business layer
 - Aggregation logic
 - Export formatting contracts, if needed
 - MCP workflow abstractions later
@@ -234,11 +239,12 @@ GET    /api/transactions/{id}
 DELETE /api/transactions/{id}
 
 GET    /api/categories
+GET    /api/categories/{id}
 POST   /api/categories
 
 POST   /api/reports
 
-POST   /api/export
+POST   /api/export    (planned, not yet implemented)
 ```
 
 Optional MCP-style endpoints or internal services:
@@ -353,89 +359,39 @@ Response (same `ReportResult` shape; `period` is the stringified inclusive range
 
 Reports use a factory + strategy design in the Business layer.
 
-The API controller receives a generic report request:
+The `ReportsController` delegates to `IReportService`, which resolves the `ReportRequest.Type` enum value through `ReportStrategyFactory` to an `IReportStrategy` implementation. Each strategy owns its full pipeline:
 
-```json
-{
-  "type": "period",
-  "parameters": {
-    "from": "2026-05-01",
-    "to": "2026-05-31"
-  }
-}
-```
+1. Deserialize `ReportRequest.Data` (a `JsonElement`) into its own typed payload DTO.
+2. Validate the payload; on failure throw `ReportValidationException` (controller maps to HTTP 400).
+3. Resolve the payload to an inclusive `[start 00:00:00, end 23:59:59]` `DateTime` range.
+4. Filter the transactions; compute `incomeTotal`, `expenseTotal`, `netTotal`.
+5. Build the per-category breakdown with multi-category attribution and the income-first / expense-second / alphabetical-within sort.
+6. Return a `ReportResult`.
 
-The request is passed to a report strategy factory.
+Currently implemented strategy:
 
-The factory selects a strategy by report type.
+- `PeriodReportStrategy` (`ReportType.Period`)
 
-Example strategies:
+Planned strategies (the enum values exist; the strategies are not yet scaffolded):
 
-- `PeriodReportStrategy`
-- `IsoWeekReportStrategy`
-- `MonthReportStrategy`
+- `IsoWeekReportStrategy` (`ReportType.IsoWeek`)
+- `MonthReportStrategy` (`ReportType.Month`)
 
-This design keeps each report type isolated and makes it easy to add new report types using an AI coding assistant.
+Adding a new strategy means: define its `data` payload DTO under `Finance.Business/Dtos/Reports/`, implement `IReportStrategy` under `Finance.Business/Services/Reports/`, and register it as a DI singleton in `Program.cs`. The factory picks it up automatically because it's built from the DI-resolved `IEnumerable<IReportStrategy>`.
 
 The reusable AI skill for this project should focus on generating a new report strategy, parameter parsing, factory registration, and unit tests for a new report type.
 
 ## Export
 
-Reports can be exported through a single endpoint:
+Planned (not yet implemented).
+
+Reports will be exported through a single endpoint:
 
 ```http
 POST /api/export
 ```
 
-The request body contains a report request.
-
-The response format is selected through the `Accept` header.
-
-### JSON export
-
-```http
-POST /api/export
-Content-Type: application/json
-Accept: application/json
-```
-
-Request body:
-
-```json
-{
-  "report": {
-    "type": "period",
-    "parameters": {
-      "from": "2026-05-01",
-      "to": "2026-05-31"
-    }
-  }
-}
-```
-
-### CSV export
-
-```http
-POST /api/export
-Content-Type: application/json
-Accept: text/csv
-```
-
-Request body:
-
-```json
-{
-  "report": {
-    "type": "period",
-    "parameters": {
-      "from": "2026-05-01",
-      "to": "2026-05-31"
-    }
-  }
-}
-```
-
-Exports should export the generated report result, not the raw internal repository state.
+The request body will carry the same `ReportRequest` envelope used by `/api/reports` (`{ type, data }`); the response format will be selected through the `Accept` header (`application/json` or `text/csv`). Exports will return the generated `ReportResult`, not the raw repository state.
 
 ## MCP-Style Workflow
 
@@ -466,13 +422,14 @@ The purpose is to prove that structured context makes AI-assisted work more repr
 
 ## Artifacts
 
-The `artifacts/` folder contains documentation required for the assignment.
+The `ai-artifacts/` folder contains documentation required for the assignment.
 
 | File | Purpose |
 |---|---|
-| `context_schema.md` | MCP context schema: field purposes, TTL, redaction rules, pruning rules, verification rules |
-| `example_context_snapshot.json` | Safe example MCP context snapshot with sample category mappings and pending transactions |
 | `agent_log.txt` | AI-assisted development log: accepted/rejected suggestions with reasoning |
+| `context_schema.md` | MCP context schema: field purposes, TTL, redaction rules, pruning rules, verification rules (placeholder for the future MCP milestone) |
+| `example_context_snapshot.json` | Safe example MCP context snapshot (placeholder for the future MCP milestone) |
+| `Specifications/in-memory-repository-spec.md`, `Specifications/period-report-strategy-spec.md` | Early design briefs; defer to the constitution and CLAUDE.md where they conflict |
 
 ## Running Locally
 
@@ -525,7 +482,7 @@ dotnet test
 
 ## CI
 
-> Status: **planned, not yet implemented.** `.github/workflows/ci.yml` does not exist yet and will be added once the test project lands.
+> Status: **planned, not yet implemented.** `.github/workflows/ci.yml` does not exist yet.
 
 When added, GitHub Actions will run on every push and pull request:
 
@@ -542,7 +499,7 @@ The CI pipeline does not require real secrets, Docker, SQL Server, LocalDB, or a
 Every meaningful AI interaction is logged in:
 
 ```text
-artifacts/agent_log.txt
+ai-artifacts/agent_log.txt
 ```
 
 Each entry includes:
@@ -609,16 +566,16 @@ Transaction descriptions may contain sensitive information. MCP context snapshot
 
 ## Project Status
 
-Initial MVP planning stage.
+MVP build-out is well underway.
 
-Planned milestones:
+Milestones:
 
-1. ~~Create three projects: API, Business, and Data.~~ ✅ Done — `Finance.Api`, `Finance.Business`, `Finance.Data` scaffolded under `src/backend/FinanceTracker/` and wired with project references.
-2. Add in-memory repositories with seeded transactions and categories in the Data layer.
-3. Add transaction and category endpoints in the API layer.
-4. Add report factory and initial period report strategy in the Business layer.
-5. Add JSON and CSV export endpoint using content negotiation.
-6. Add unit and integration tests.
-7. Add GitHub Actions CI.
-8. Add MCP-style context snapshot and replay flow.
-9. Complete assignment artifacts and demo recording.
+1. ✅ Create three projects: API, Business, and Data.
+2. ✅ Add in-memory repositories with seeded transactions and categories in the Data layer.
+3. ✅ Add transaction and category endpoints in the API layer.
+4. ✅ Add report factory and initial period report strategy in the Business layer.
+5. ⬜ Add JSON and CSV export endpoint using content negotiation.
+6. ✅ Add unit and integration tests (xUnit v3 + Moq for unit isolation; `Microsoft.AspNetCore.Mvc.Testing` for end-to-end HTTP coverage).
+7. ⬜ Add GitHub Actions CI.
+8. ⬜ Add MCP-style context snapshot and replay flow.
+9. ⬜ Complete assignment artifacts and demo recording.

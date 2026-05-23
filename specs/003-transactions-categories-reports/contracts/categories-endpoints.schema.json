@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://finance-tracker-api/specs/003/categories-endpoints.schema.json",
+  "title": "Categories endpoints (request and response shapes)",
+  "description": "Schemas for GET/POST under /api/categories. Status-code behavior is documented in http-endpoints.md.",
+
+  "$defs": {
+    "CategoryType": {
+      "type": "string",
+      "enum": ["Income", "Expense", "Both"]
+    },
+
+    "CategoryCreateRequest": {
+      "type": "object",
+      "required": ["name", "type"],
+      "additionalProperties": true,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Non-empty after trim. Case-insensitively unique across all categories (enforced by storage layer; controller maps duplicate to 409). FR-014, FR-008."
+        },
+        "type": { "$ref": "#/$defs/CategoryType" }
+      }
+    },
+
+    "CategoryResponse": {
+      "type": "object",
+      "required": ["id", "name", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "integer", "minimum": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "type": { "$ref": "#/$defs/CategoryType" }
+      }
+    }
+  },
+
+  "oneOf": [
+    {
+      "title": "GET /api/categories response (200)",
+      "type": "array",
+      "items": { "$ref": "#/$defs/CategoryResponse" }
+    },
+    {
+      "title": "GET /api/categories/{id} response (200)",
+      "$ref": "#/$defs/CategoryResponse"
+    },
+    {
+      "title": "POST /api/categories request body",
+      "$ref": "#/$defs/CategoryCreateRequest"
+    }
+  ]
+}
