@@ -9,6 +9,6 @@ public static class JsonSerializationOptions
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         DefaultIgnoreCondition = JsonIgnoreCondition.Never,
-        Converters = { new JsonStringEnumConverter() }
+        Converters = { new JsonStringEnumConverter(namingPolicy: null, allowIntegerValues: false) }
     };
 }

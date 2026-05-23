@@ -9,6 +9,11 @@
 
 	<ItemGroup>
 		<PackageReference Include="xunit.v3" Version="3.2.2" />
+		<PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\..\Finance.Api\Finance.Api.csproj" />
 	</ItemGroup>
 
 </Project>
