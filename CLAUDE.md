@@ -108,5 +108,5 @@ Every meaningful AI interaction (accepted or rejected) is logged to `ai-artifact
 SQL Server, EF Core, Docker, LocalDB, database migrations, authentication, authorization, multi-user support, frontend UI, bank/payment integrations. The README's "Out of scope" list is binding for this MVP.
 
 <!-- SPECKIT START -->
-<!-- Populated by /speckit-plan with a pointer to the current feature's plan.md. No active feature. -->
+Active feature: [004-report-strategy-scaffold](specs/004-report-strategy-scaffold/plan.md) — Claude Code skill that scaffolds new report types into the existing factory + strategy pipeline. Spec: [spec.md](specs/004-report-strategy-scaffold/spec.md). Constitution v3.0.0 gates: PASS (no violations).
 <!-- SPECKIT END -->

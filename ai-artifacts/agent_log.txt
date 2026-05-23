@@ -3215,3 +3215,157 @@ Open follow-ups / not yet done:
     v3.0.0 Sync Impact Report.
   - ai-artifacts/Specifications/*.md still pre-v2.0.0; deferred
     per long-standing user direction.
+
+
+=========================================================================
+Timestamp: 2026-05-23
+Model / tool: Claude Code (Opus 4.7, 1M context) via /speckit-implement
+-------------------------------------------------------------------------
+Prompt:
+  /speckit-implement on feature 004-report-strategy-scaffold. Execute
+  the task list at specs/004-report-strategy-scaffold/tasks.md to
+  deliver the report-strategy-scaffold Claude skill — a single
+  SKILL.md file that, when invoked, scaffolds a new report type
+  (enum value, DTO record, IReportStrategy implementation, DI
+  registration, unit tests, integration test, agent_log entry) into
+  the Finance.Business factory+strategy pipeline, with refusal paths
+  and a --preview dry-run mode.
+
+AI suggestion:
+  Implemented feature 004 as a single deliverable file:
+  .claude/skills/report-strategy-scaffold/SKILL.md (~370 lines).
+
+  What the skill does on accept-path invocation:
+   - Reads four required fields from the developer (Name,
+     PayloadFields, RangeRule, PeriodDescriptorFormat), asking
+     conversationally only for the ones missing.
+   - Runs eight Analysis checks (anchor file, enum-presence,
+     strategy-existence, persistence/caching, multi-range payload,
+     name normalisability, dirty-tree-with-confirm, triviality
+     classification) before any Write/Edit. Accept-or-refuse-as-a-
+     batch per research.md R-005.
+   - On accept, performs seven file operations exactly matching the
+     eight-row allow-list in contracts/file-writes.md: edit the
+     ReportType enum (skip if already declared), create the
+     <Name>ReportData record, create the <Name>ReportStrategy class
+     (using a template that mirrors PeriodReportStrategy's five-step
+     shape), add one AddSingleton<IReportStrategy, ...> line to
+     Finance.Api/Program.cs after the existing PeriodReportStrategy
+     registration (line 30), create the strategy unit-test file
+     mirroring PeriodReportStrategyTests.cs, append one new [Fact]
+     to ReportStrategyFactoryTests.cs, and append one new [Fact] to
+     Finance.Api.IntegrationTests/ReportsEndpointTests.cs.
+   - Then runs dotnet build + dotnet test from
+     src/backend/FinanceTracker/, trims output per research.md R-007
+     (first matched 'error CS\d+:' / 'error MSB\d+:' / 'Failed' line
+     plus 3 lines of context), and appends one entry to
+     ai-artifacts/agent_log.txt in the file's existing prose-block
+     format. Decision = 'accepted' on green, 'needs-revision' on
+     non-zero build/test exit.
+   - For non-trivial RangeRules (e.g. "previous N business days"),
+     emits the resolve-to-range method body as a
+     NotImplementedException + TODO and marks the corresponding
+     [Fact] with [Fact(Skip = "...")] so dotnet test stays green;
+     names the skipped tests in the final summary.
+
+  Refuse paths:
+   - Six refusal codes (R1-strategy-exists, R2-persistence-required,
+     R3-multi-range-payload, R4-missing-anchor,
+     R5-name-not-normalisable, R6-dirty-tree-declined), each with a
+     specific detection rule. Refusal writes nothing to the
+     production tree; the only on-disk side effect is one
+     'decision: rejected' append to ai-artifacts/agent_log.txt.
+
+  Preview path (--preview / --dry-run):
+   - Same Analysis except dirty-tree (irrelevant when nothing is
+     written). Emits the Plan summary, then 'No files written. No
+     agent-log entry.' and exits. Zero file mutations including
+     zero agent_log appends.
+
+  Tasks completed in this session:
+   - T001: Created .claude/skills/report-strategy-scaffold/
+     directory.
+   - T002-T024: All authored into one composed SKILL.md write
+     instead of 23 sequential single-section appends. The
+     intermediate per-section file states would have had no value;
+     the file isn't useful until all sections are present.
+   - T027: Contract self-check via grep of repo-path references in
+     SKILL.md against contracts/file-writes.md row 1-8 allow-list.
+     All eight rows mapped; no stray paths.
+   - T028: This log entry.
+
+  Tasks deferred to the user:
+   - T017, T021, T024, T026: Manual verification scenarios that
+     require a fresh Claude Code session invoking the new skill
+     against the actual codebase. The implementing model
+     (this one) cannot self-invoke a sibling skill from inside
+     the same session, so these tests are deferred to the
+     developer post-merge.
+   - T025: Partial verification done — the system-reminder during
+     this session confirmed the skill is now listed under
+     'Available skills' alongside the speckit-* family. Full
+     verification (developer opens a fresh session, types
+     '/report-' and sees the entry with the right description)
+     remains a user-side check.
+
+  Files changed in this implementation:
+   - .claude/skills/report-strategy-scaffold/SKILL.md (new, ~370 lines)
+   - specs/004-report-strategy-scaffold/tasks.md (existed from
+     /speckit-tasks; this session marks the 24 implementation
+     tasks complete and leaves the 4 manual-verification tasks
+     unchecked with a note).
+
+  Files NOT touched (deliberate):
+   - Anything under src/backend/FinanceTracker/. The skill's
+     output writes there, not this feature's implementation.
+     The plan.md "Structure Decision" calls this out explicitly.
+   - README.md, CLAUDE.md (already pointed at this feature's
+     plan.md by /speckit-plan), .specify/, .gitignore.
+
+  One reconciliation worth flagging:
+   - contracts/agent-log-entry.md specified a strict 8-field flat
+     key:value layout for log entries. The actual
+     ai-artifacts/agent_log.txt file uses a prose-block style
+     with section headers and a ===… divider — what every existing
+     entry uses, including this one. SKILL.md instructs the skill
+     to read the file's last entry and match its layout (citing
+     the contract as the *logical* schema for required fields,
+     not the literal format). This is documented inline in
+     SKILL.md's "Step 9: agent log append" section. The contract
+     file itself was left as-is to preserve the speckit
+     /speckit-plan output; a future spec-cleanup pass could
+     reconcile.
+
+Decision: Accepted.
+
+Reason:
+  - Single-file deliverable matches plan.md "Structure Decision":
+    .claude/skills/report-strategy-scaffold/SKILL.md is the entire
+    feature output. No C# code added in this feature's
+    implementation — the skill's *runtime behavior* is what edits
+    Finance.* code, and that happens at invocation time, not now.
+  - All Phase 1-5 implementation tasks (T001-T024) are now
+    represented in the composed SKILL.md; Phase 6 polish tasks
+    (T025 partial, T027 done, T028 done) are complete. The four
+    manual-verification tasks (T017, T021, T024, T026) require
+    actually running the skill from a fresh session and are flagged
+    as deferred — they are valid post-merge follow-ups, not
+    implementation gaps.
+  - Constitution v3.0.0 gates re-checked: PASS. No production-code
+    edits this session means no risk of layer violations,
+    no new NuGet dependencies, no scope creep. The skill itself
+    is gated by its own prompt to satisfy the same principles
+    when invoked.
+  - Skill is now visible to Claude Code's skill discovery
+    (confirmed via system-reminder during this session).
+
+Open follow-ups / not yet done:
+  - T017 (IsoWeek scaffold end-to-end against quickstart.md
+    transcript), T021 (refusal-code scenarios), T024 (preview
+    no-op verification), T026 (full quickstart end-to-end). All
+    require a fresh Claude Code session to invoke
+    /report-strategy-scaffold and observe behaviour. Run after
+    this branch merges.
+  - Branch 004-report-strategy-scaffold has uncommitted changes
+    (SKILL.md, tasks.md edits, this log append). The
+    /speckit-implement after_implement hook offers a commit.
