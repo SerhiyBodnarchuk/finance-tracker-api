@@ -42,7 +42,7 @@ jobs:
         run: dotnet build FinanceTracker.slnx --no-restore --configuration Release --verbosity minimal
 
       - name: Test (Release)
-        run: dotnet test FinanceTracker.slnx --no-build --configuration Release -- --report-trx --results-directory ${{ github.workspace }}/TestResults
+        run: dotnet test FinanceTracker.slnx --no-build --configuration Release --logger "trx;LogFileName=test-results.trx" --results-directory ${{ github.workspace }}/TestResults
 
       - name: Upload test results
         if: always()
