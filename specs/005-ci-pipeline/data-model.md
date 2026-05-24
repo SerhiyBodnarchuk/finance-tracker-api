@@ -58,13 +58,13 @@ Each `Workflow Run` contains an ordered list of steps. Each step has its own sta
 | **Restore NuGet cache** | `actions/cache@v4` | Restores `~/.nuget/packages` from a prior cache hit (or notes a miss). | Never fails the run (cache misses are silent). Logged for visibility. |
 | **Restore solution** | `dotnet restore FinanceTracker.slnx` | Resolves the package graph. | Run fails. Maps to "broken restore" in SC-003. |
 | **Build (Release)** | `dotnet build FinanceTracker.slnx --no-restore -c Release` | Compiles in Release. | Run fails. Maps to "broken build" in SC-003 and to User Story 1 acceptance scenario 2. |
-| **Test (Release)** | `dotnet test FinanceTracker.slnx --no-build -c Release --verbosity minimal` | Runs all four test projects. | Run fails. Maps to "broken test" in SC-003 and to User Stories 2 and 3. |
+| **Test (Release)** | `dotnet test FinanceTracker.slnx --no-build -c Release` | Runs all four test projects via the VSTest path (`Microsoft.NET.Test.Sdk` + `xunit.runner.visualstudio`). | Run fails. Maps to "broken test" in SC-003 and to User Stories 2 and 3. |
 
 ### Invariants
 
 - The six steps execute strictly in the order listed. Earlier failure short-circuits later steps (default `if` behaviour — no `if: always()` is used).
 - Step names in the YAML MUST match the **Step name** column verbatim, because reviewers rely on per-step status visibility (SC-004) and the names are the only label they see.
-- Test failures inside the **Test (Release)** step produce a step-level `failure` conclusion *and* a console log containing each failing test's fully-qualified name (FR-012). The xUnit v3 default console logger prints this format; no extra logger argument is required (D12).
+- Test failures inside the **Test (Release)** step produce a step-level `failure` conclusion *and* a console log containing each failing test's fully-qualified name (FR-012). The `xunit.runner.visualstudio` adapter prints this format; no extra logger argument is required (D12).
 
 ### Step → User-Story / FR mapping
 

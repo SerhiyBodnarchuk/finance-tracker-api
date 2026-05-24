@@ -72,14 +72,7 @@ jobs:
 
 ## C6 — Steps (ordered)
 
-The job MUST contain exactly these **seven** steps in this order, with these names. Optional fields not listed below MAY be added by the implementer if they don't change observable behaviour; mandatory fields below MUST appear.
-
-> **Amendment 2026-05-24 (five revisions, same day)**: step 6 was reshaped five times in response to "need to see how many tests passed".
-> 1. Inline Python parser writing to `$GITHUB_STEP_SUMMARY` (reverted — too custom).
-> 2. VSTest `--logger trx` + `actions/upload-artifact@v4` (no TRX produced — `--logger` was a no-op).
-> 3. `dotnet test ... -- --report-trx ...` (silent no-op — `dotnet test` couldn't discover pure-MTP projects).
-> 4. Shell loop bypassing `dotnet test` to invoke each assembly directly (a workaround that worked but dodged the real problem).
-> 5. **Current**: revert to a clean `dotnet test ... -- --report-trx ...` after fixing the underlying issue — adding `<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>` and a `Microsoft.Testing.Extensions.TrxReport` package reference to every test csproj. This is the canonical xunit.v3 + MTP wiring; the workflow is now one line again. Full history in research.md D5-revised / D12-revised and `ai-artifacts/agent_log.txt`.
+The job MUST contain exactly these **six** steps in this order, with these names. Optional fields not listed below MAY be added by the implementer if they don't change observable behaviour; mandatory fields below MUST appear.
 
 ### Step 1 — `Checkout`
 
@@ -145,38 +138,14 @@ The job MUST contain exactly these **seven** steps in this order, with these nam
 
 ```yaml
 - name: Test (Release)
-  run: dotnet test FinanceTracker.slnx --no-build --configuration Release -- --report-trx --results-directory ${{ github.workspace }}/TestResults
+  run: dotnet test FinanceTracker.slnx --no-build --configuration Release
 ```
 
 - `--no-build` MUST be present (the previous step built — constitution clause).
 - `--configuration Release` MUST be present (D7) — together with `--no-build`, this points `dotnet test` at the Release-built binaries.
 - Runs all four test projects in one invocation (D5).
-- The `--` stop-parsing token MUST precede the MTP-native flags. Everything after `--` is forwarded to the **Microsoft.Testing.Platform (MTP) runner** that xUnit v3 ships with.
-- MTP flags after `--`:
-  - `--report-trx` — emits one `.trx` file per test project. Enabled by the `Microsoft.Testing.Extensions.TrxReport` NuGet package, which **must** be referenced by every test csproj (it is — added when this feature was implemented; see research D5-revised). Without that package, MTP silently ignores `--report-trx`.
-  - `--results-directory ${{ github.workspace }}/TestResults` — pins all TRX output to a single, workspace-rooted directory so step 7 finds them regardless of how each test project would otherwise default its output path.
-- This works because the test csprojs declare `<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>` (added when this feature was implemented), which tells `dotnet test` to invoke each test project's embedded MTP runner instead of falling back to VSTest discovery (which would silently no-op, since none of the test projects reference `Microsoft.NET.Test.Sdk`). See research D5-revised for the diagnosis history.
-- xUnit v3's MTP runner prints its own per-project pass/fail summary to stdout by default; no `--logger console` flag is needed for inline visibility.
+- xUnit v3 + `xunit.runner.visualstudio` (referenced by every test csproj) prints per-project pass/fail counts and failing-test names to stdout by default. No extra logger flag is needed.
 - Failure fails the run (default behaviour). Tests must still short-circuit if step 5 failed (no `if: always()` here).
-
-### Step 7 — `Upload test results`
-
-```yaml
-- name: Upload test results
-  if: always()
-  uses: actions/upload-artifact@v4
-  with:
-    name: test-results
-    path: TestResults
-    if-no-files-found: ignore
-```
-
-- `if: always()` MUST be present. This is the **only** step in the workflow allowed to use `if: always()`; without it, a failed test run would not upload the TRX files developers need to diagnose the failure. C7 is amended below to reflect this carve-out.
-- `actions/upload-artifact@v4` is a **first-party GitHub action** (same family as the other three used in this workflow); no third-party marketplace action is introduced.
-- `path: TestResults` resolves relative to `$GITHUB_WORKSPACE` (the runner's repo root). It MUST match the directory specified by step 6's `--results-directory ${{ github.workspace }}/TestResults` argument; if those two ever drift, the artifact will be empty.
-- `if-no-files-found: ignore` MUST be present. When the build fails before any test runs, no TRX files exist and the step would otherwise warn or fail; `ignore` makes the step a no-op in that case so it does not affect the run's overall conclusion.
-- Default retention (the repository's setting, typically 90 days) is acceptable. Do NOT add `retention-days:` — it's a tuning knob that doesn't belong in this MVP.
-- The step MUST NOT inline-parse the TRX, write to `$GITHUB_STEP_SUMMARY`, or post check-run annotations. Consumption of the TRX is the developer's responsibility (download from the run page, open in Visual Studio / a TRX viewer, or feed into downstream tooling). Inline pass/fail counts come from xUnit v3's default MTP console output in step 6's log.
 
 ## C7 — What the workflow MUST NOT contain
 
@@ -186,26 +155,15 @@ The following clauses harden the feature against scope creep during implementati
 - **No matrix.** Single Linux runner only.
 - **No `secrets.*` references.** The whole workflow MUST work with the default `GITHUB_TOKEN` only (FR-009, SC-005).
 - **No third-party marketplace actions.** Only `actions/checkout@v4`, `actions/setup-dotnet@v4`, `actions/cache@v4`.
-- **`actions/upload-artifact` is permitted only in step 7, only for the `*.trx` files emitted by step 6.** No other artifact upload (coverage reports, build binaries, publish output, screenshots, anything else) is permitted. The artifact name MUST be `test-results`.
+- **No `actions/upload-artifact`.** No TRX upload, no coverage report, no published binaries. The default `dotnet test` console output suffices for the MVP.
 - **No `dotnet publish`** step. Build only, no packaging.
 - **No `dotnet format`, `dotnet test --collect`, or linting steps.** Out of scope.
-- **No `if: always()`** on the build/test steps (steps 1–6). Earlier failure MUST short-circuit them (US2 acceptance scenario 3). The only carve-out is **step 7 (Upload test results)**, which MUST use `if: always()` so a failed run still uploads whatever TRX files exist.
+- **No `if: always()`** on any step. Earlier failure MUST short-circuit later steps (US2 acceptance scenario 3).
 - **No `continue-on-error: true`** anywhere. Every step's failure must fail the run.
 - **No `permissions:` widening beyond `contents: read`.**
 - **No `services:`** block (no Docker side-cars; no Postgres, no Redis).
 - **No `env:` block at workflow or job level** for this MVP. Step-level `env:` may be added if needed by a specific command, but none is needed today.
 - **No `global.json`** is added to the repository as part of this feature (D2).
-
-## C7b — Required production-side configuration (added 2026-05-24, revision 5)
-
-The workflow's correctness depends on two settings inside every test csproj under `src/backend/FinanceTracker/tests/`:
-
-1. A `<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>` property in the project's `<PropertyGroup>`. Without it, `dotnet test` falls back to VSTest-mode discovery and silently finds zero test projects (because none reference `Microsoft.NET.Test.Sdk`).
-2. A `<PackageReference Include="Microsoft.Testing.Extensions.TrxReport" Version="2.2.3" />` entry. Without it, the MTP runner silently ignores `--report-trx` and no `.trx` files are emitted.
-
-Both are marked with `<!-- CRITICAL: ... -->` comments in the csproj files so that future maintenance doesn't strip them as cruft. A new test project added under `tests/` MUST include both, or step 6 will silently skip it / fail to report on it.
-
-These are configuration, not behaviour — they don't violate any constitution principle, but they are the load-bearing reason the one-line `dotnet test` invocation works. If C7b is broken (e.g., the package reference is removed), CI will pass but produce no TRX, exactly mimicking the symptom this contract spent four revisions debugging.
 
 ## C8 — Observable outcomes the contract guarantees
 
@@ -220,7 +178,7 @@ These are configuration, not behaviour — they don't violate any constitution p
 | FR-009 | Zero secrets | C3 + C7 |
 | FR-010 | File at `.github/workflows/ci.yml` | C1 |
 | FR-011 | Cancel superseded runs | C4 |
-| FR-012 | Failing-test name in log | C6 step 6 + xUnit v3 default logger |
+| FR-012 | Failing-test name in log | C6 step 6 + xUnit v3 + xunit.runner.visualstudio default console output |
 | SC-001 | Start within 1 min | C2 (PR trigger fires immediately; GitHub queueing is normally <10s) |
 | SC-002 | Full run ≤ 10 min | C5 timeout, D6 cache strategy |
 | SC-003 | 100% broken PRs blocked | C8 default sequential failure short-circuit + maintainer-side branch protection (out of YAML scope) |
@@ -232,8 +190,8 @@ These are configuration, not behaviour — they don't violate any constitution p
 
 These deliberately fall outside this feature and would warrant a separate spec:
 
-- TRX log artifact upload for downstream test-report tooling.
-- Coverage collection (`coverlet.collector` already referenced in some test projects could be wired up, but the spec excludes it).
+- TRX log artifact upload for downstream test-report tooling. (Several variants were prototyped during this feature and removed; see `ai-artifacts/agent_log.txt`.)
+- Coverage collection (`coverlet.collector` could be wired up, but the spec excludes it).
 - A `release.yml` workflow that builds NuGet packages on a tag push.
 - Branch-protection-rule provisioning via `gh api` or Terraform — currently a manual repo setting.
 - A matrix expansion to `windows-latest` if/when Windows-specific test coverage lands.

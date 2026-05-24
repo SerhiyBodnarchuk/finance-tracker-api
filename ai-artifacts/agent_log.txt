@@ -4114,3 +4114,122 @@ Open follow-ups / not yet done:
     revision 4 is no longer needed.
   - T019 / quickstart V1 still DEFERRED to PR review; pass
     criteria already require the artifact to contain 4 TRX files.
+
+
+=========================================================================
+Timestamp: 2026-05-24
+Model / tool: Claude Code (Opus 4.7, 1M context) - feature
+              005-ci-pipeline cleanup pass after the MTP-vs-VSTest saga
+              landed on the VSTest path.
+-------------------------------------------------------------------------
+Prompt:
+  "1) Ok, logs are good. Let's remove test report upload.
+   2) Update spec files, constitution, claude md if needed.
+   3) Make cleanup of temp comments/files from speckit"
+
+AI suggestion:
+  Three-task cleanup of feature 005-ci-pipeline now that local
+  dotnet test works (per user's last confirmation of working logs)
+  on the VSTest path: Microsoft.NET.Test.Sdk 17.12.0 +
+  xunit.runner.visualstudio 3.0.2.
+
+  Task 1 - Remove test report upload:
+   - .github/workflows/ci.yml: dropped the "Upload test results"
+     step entirely. Removed --logger trx and --results-directory
+     flags from step 6. Step 6 is now a single line:
+       dotnet test FinanceTracker.slnx --no-build --configuration Release
+     Workflow is now six steps, ~45 lines, no artifact production.
+
+  Task 2 - Update constitution / CLAUDE.md / spec docs:
+   - .specify/memory/constitution.md: bumped 3.0.0 -> 3.0.1 (PATCH).
+     * Sync Impact Report entry added at the top of the file.
+     * Principle IV reworded: removed "(xunit.v3, OutputType=Exe)"
+       wording; replaced with "(xunit.v3) ... executed through the
+       standard Microsoft.NET.Test.Sdk + xunit.runner.visualstudio
+       pair".
+     * Technology & Scope Constraints "Testing" bullet rewritten
+       to acknowledge the same package pair.
+     * "CI" bullet promoted from "planned at ..." to "shipped by
+       feature 005-ci-pipeline".
+     * Last Amended updated to 2026-05-24.
+   - CLAUDE.md: updated the test-stack sentence to mention
+     Microsoft.NET.Test.Sdk + xunit.runner.visualstudio and to
+     remove the "(planned at .github/workflows/ci.yml)" qualifier.
+     Also tightened the CI invocation wording to match what shipped.
+   - specs/005-ci-pipeline/research.md:
+     * D5 rewritten as the canonical VSTest-path decision; the
+       pure-MTP attempt now lives in "rejected alternatives" with
+       a one-sentence summary of why it failed.
+     * D12 rewritten: no TRX flags, no upload step, default
+       dotnet test console output suffices. Variants from the
+       saga (inline python parser, --logger trx, MTP --report-trx,
+       shell loop) listed in rejected alternatives.
+   - specs/005-ci-pipeline/contracts/workflow-contract.md:
+     * C6 rewritten: "exactly these six steps" (was seven). Step 7
+       (Upload test results) removed. Step 6 rewritten to the
+       clean one-line form. Amendment note at top of C6 removed.
+     * C7 rewritten: restored the clean "No actions/upload-artifact"
+       prohibition. Removed the if: always() carve-out.
+     * C7b section (added in revision 5 of the saga) removed
+       entirely; no longer relevant now that the VSTest path
+       doesn't depend on any opt-in csproj flag.
+     * C8 mapping table updated to reference xunit.runner.visualstudio
+       instead of "xunit v3 default logger".
+     * C9 future-work bullet adjusted to mention the prototyped-
+       and-removed TRX variants for context.
+   - specs/005-ci-pipeline/data-model.md: Entity 2 Test step row
+     updated to mention the VSTest path. The "intentionally NOT
+     modelled" section already said no TRX upload - left as-is.
+   - specs/005-ci-pipeline/plan.md, spec.md, quickstart.md,
+     tasks.md, checklists/requirements.md: no edits required.
+     They reference "TRX log artifact" only in the sense of
+     "addressed in research.md" or "no upload-artifact" - both
+     accurate against the final state.
+
+  Task 3 - Cleanup of temp/iteration comments:
+   - All <!-- CRITICAL: ... --> comments in test csprojs were
+     removed in an earlier turn (user request); confirmed.
+   - All "Amendment 2026-05-24 (X revisions, same day)" markers
+     in workflow-contract.md and research.md removed; the final
+     decision text stands alone.
+   - "Revision 1/2/3/4/5" history lists in research.md D12
+     collapsed to a single sentence ("see ai-artifacts/agent_log.txt
+     for the full saga"). The agent_log retains the complete
+     forensic record - that's where iteration history belongs.
+   - No temp files (TestResults/ on disk, etc.) committed; user
+     ran tests locally but the working tree is clean of run
+     artefacts.
+
+  Files written / edited:
+   - .github/workflows/ci.yml                                     (step 7 removed, step 6 simplified)
+   - .specify/memory/constitution.md                              (3.0.0 -> 3.0.1, Principle IV reworded, Sync Impact Report)
+   - CLAUDE.md                                                    (test-stack sentence updated)
+   - specs/005-ci-pipeline/research.md                            (D5 rewritten, D12 rewritten)
+   - specs/005-ci-pipeline/contracts/workflow-contract.md         (C6 reshaped to six steps, C7 restored, C7b removed)
+   - specs/005-ci-pipeline/data-model.md                          (Test step row reworded)
+   - ai-artifacts/agent_log.txt                                   (this entry)
+
+Decision: accepted
+
+Reason:
+  Feature 005-ci-pipeline is now shippable. Local dotnet test
+  runs cleanly (user verified). The shipped workflow honours the
+  constitution's CI clause literally. Constitution updated
+  (PATCH bump) to reflect the actual test-stack wiring. Iteration
+  history compressed into agent_log.txt where it belongs; spec
+  docs describe the final state without forensic detail.
+
+  Reviewer takeaway: the project's test stack on .NET 10 is now
+  pinned to the well-trodden VSTest path. A future revisit of
+  pure-MTP can happen via constitution amendment once the .NET
+  SDK's dotnet test + MTP integration is past its current
+  version-mismatch growing pains.
+
+Open follow-ups / not yet done:
+  - DEFERRED tasks (T013, T015-T021, T024) still need a live PR
+    to execute; they're correctly marked in tasks.md.
+  - Branch-protection rule for `main` and `development` requiring
+    the CI check still needs to be applied by the repository
+    maintainer (per quickstart.md V6).
+  - No further iteration expected on this feature absent a live-
+    CI surprise.
