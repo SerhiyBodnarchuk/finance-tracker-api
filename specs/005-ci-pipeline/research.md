@@ -154,15 +154,20 @@ This document resolves the technical unknowns surfaced by the Technical Context 
 
 ---
 
-## D12 — Logging verbosity
+## D12 — Logging verbosity and test report
 
-**Decision**: `--verbosity minimal` on `dotnet build` and `dotnet test`. No special logger flag for test output (xUnit v3's default console logger is sufficient).
+**Decision (revised twice on 2026-05-24)**:
+- `dotnet build`: `--verbosity minimal`.
+- `dotnet test`: drop `--verbosity minimal`; use two `--logger` flags — `console;verbosity=normal` for inline pass/fail counts and `trx;LogFileName=test-results.trx` for a structured per-project report.
+- New step 7: `actions/upload-artifact@v4` uploads the TRX files under the artifact name `test-results` so reviewers can download and inspect them with Visual Studio or any TRX viewer.
 
-**Rationale**: `minimal` shows warnings and errors and suppresses informational chatter; failing tests still print their fully-qualified name, message, and stack — which is what FR-012 requires. `quiet` would hide warnings; `normal` floods the log with per-target-framework noise.
+**Rationale**: The original `--verbosity minimal` test step hid the per-project `Passed: N / Failed: N` lines developers expect to see in CI logs. The first revision attempted to render a Markdown summary at the top of the run page using an inline `python3` script that parsed the TRX files. That worked but introduced ~25 lines of bespoke XML-parsing logic embedded in YAML — high-maintenance for a small visibility win. The second revision deletes the parser and uses the standard pattern: emit TRX during `dotnet test`, upload it with `actions/upload-artifact@v4`. The console logger already covers the at-a-glance "how many passed" question inside the run log; the artifact handles "give me the structured data".
 
-**Alternatives considered**:
-- `--verbosity normal`: rejected. Pages of MSBuild noise per PR.
-- `--logger "trx;LogFileName=test.trx"` + `actions/upload-artifact`: rejected for the MVP. The console log already satisfies FR-012; an uploaded TRX is nice-to-have but adds a fourth dependency (`actions/upload-artifact@v4`) and another step to maintain. Revisit if reviewers ask for it.
+**Alternatives considered (after the second revision)**:
+- Inline `python3` parser writing to `$GITHUB_STEP_SUMMARY`: tried and reverted. Custom, brittle, hard to read.
+- Third-party reporter actions (e.g. `dorny/test-reporter`, `EnricoMi/publish-unit-test-result-action`): rejected. Would require `checks: write` permissions plus a marketplace dependency — both forbidden by C3 / C7. The artifact-only approach gives ~90% of the value with zero policy change beyond the narrow C7 carve-out for `upload-artifact`.
+- No artifact, no extra logger flags, keep `--verbosity minimal`: rejected. That's the state the user explicitly complained about.
+- Set a custom `retention-days` on the artifact: rejected. The repository default is fine; tuning that knob is out of scope for the MVP.
 
 ---
 

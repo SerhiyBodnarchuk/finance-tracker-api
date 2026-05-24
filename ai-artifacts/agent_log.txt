@@ -3563,3 +3563,177 @@ Open follow-ups / not yet done:
     for `main` and `development` is a maintainer-applied repo
     setting; see quickstart.md V6. Acknowledged in T024 and the
     spec's Assumptions section.
+
+
+=========================================================================
+Timestamp: 2026-05-24
+Model / tool: Claude Code (Opus 4.7, 1M context) - in-conversation
+              amendment to feature 005-ci-pipeline (no slash command).
+-------------------------------------------------------------------------
+Prompt:
+  "Need to have some kind of test report. How many tests passed etc.
+   Currently logs just show: Run dotnet test FinanceTracker.slnx
+   --no-build --configuration Release --verbosity minimal..."
+
+  (Plus an AskUserQuestion choice between four reporting options.
+   User selected option B: "GitHub Step Summary".)
+
+AI suggestion:
+  Amend the CI workflow's test step and contract C6/C7 to surface
+  test counts both inline AND as a Markdown summary at the top of the
+  workflow-run page. Specifically:
+
+   1. .github/workflows/ci.yml step 6 (Test (Release)): drop
+      --verbosity minimal; add --logger "console;verbosity=normal"
+      AND --logger "trx;LogFileName=test-results.trx". The first
+      gives inline per-project Passed/Failed/Skipped counts; the
+      second emits a TRX file per test project under
+      <project>/TestResults/test-results.trx.
+
+   2. .github/workflows/ci.yml step 7 (NEW - Test report): inline
+      python3 (preinstalled on ubuntu-latest, stdlib only) parses
+      every **/TestResults/test-results.trx file, sums
+      passed/failed/skipped counters from the
+      ResultSummary/Counters XML element, and writes a Markdown
+      table to $GITHUB_STEP_SUMMARY. Uses if: always() so the
+      summary appears even when tests fail. Falls back to a
+      single-line placeholder when no TRX files exist (build
+      failed before tests ran).
+
+   3. contracts/workflow-contract.md: amended C6 ("seven steps,
+      not six") with full step-7 specification and the new logger
+      flags on step 6; amended C7 to clarify that if: always() is
+      forbidden on steps 1-6 but mandatory on step 7, and to
+      clarify that TRX files are written to disk but NOT uploaded
+      as artifacts.
+
+   4. research.md D12 revised to record the new logger choice and
+      the rationale (inline visibility + structured summary
+      without an artifact upload or third-party action). Rejected
+      alternatives recorded.
+
+  Files written / edited:
+   - .github/workflows/ci.yml                                     (extended: step 6 loggers + new step 7)
+   - specs/005-ci-pipeline/contracts/workflow-contract.md         (C6/C7 amendment)
+   - specs/005-ci-pipeline/research.md                            (D12 revised)
+   - ai-artifacts/agent_log.txt                                   (this entry)
+
+  NOT updated (deliberately deferred to keep the amendment tight):
+   - spec.md (no FR/SC text needed re-writing - SC-004 already
+     covers per-step visibility; the report step is implementation
+     detail of how the spec is satisfied).
+   - plan.md (no Technical Context drift; the dependency on
+     python3 is satisfied by the preinstalled runner image).
+   - data-model.md (Entity 2 - Workflow Step - now has a 7th row
+     conceptually, but the table there documents the build/test
+     surface, not the report surface).
+   - quickstart.md V1 (the Markdown summary is a visible bonus,
+     but V1's pass criteria still hold without it).
+   - tasks.md (the amendment is post-implementation; no new
+     tasks needed - the workflow file is the implementation).
+
+Decision: accepted
+
+Reason:
+  The amendment honours every existing contract clause (no third-
+  party actions, no upload-artifact, no widened permissions, no
+  secrets, no Docker, no global.json) while solving the user's
+  visibility problem. The only "loosenings" are explicit and
+  surgical: step 7 added (named exception in C6), if: always()
+  permitted on step 7 only (named exception in C7). No principle
+  in the v3.0.0 constitution is touched.
+
+Open follow-ups / not yet done:
+  - Quickstart V1 (T019) should now also confirm the Test Summary
+    panel appears at the top of the run page. Reviewer can add
+    that assertion when executing V1 against the live PR.
+  - If the user later wants the raw TRX files downloadable, that
+    would require adding actions/upload-artifact@v4 and is a
+    separate C7 amendment - not done now.
+
+
+=========================================================================
+Timestamp: 2026-05-24
+Model / tool: Claude Code (Opus 4.7, 1M context) - second revision of
+              the test-reporting amendment to feature 005-ci-pipeline.
+-------------------------------------------------------------------------
+Prompt:
+  "Solution looks a bit too complex and custom. Maybe using trx
+   artifact is better approach?"
+
+  (Pushback against the inline-Python TRX-parser-to-GITHUB_STEP_SUMMARY
+   approach from the immediately preceding amendment, in favour of
+   simply uploading the TRX files as an artifact.)
+
+AI suggestion:
+  Agree with the user's instinct. Replace the bespoke inline-Python
+  step 7 with the standard pattern: emit TRX during dotnet test
+  (already there from revision 1), upload with
+  actions/upload-artifact@v4. Keep --logger "console;verbosity=normal"
+  on step 6 so inline counts still appear in the run log. The
+  artifact handles the "structured data" case.
+
+  Changes:
+   1. .github/workflows/ci.yml step 7: replaced ~25 lines of inline
+      python3 TRX-parsing code with a 5-line actions/upload-artifact@v4
+      block. path is "src/backend/FinanceTracker/**/TestResults/*.trx";
+      if-no-files-found: ignore (silent when build fails before tests);
+      if: always() preserved (we still want the artifact on test
+      failure). Artifact name "test-results".
+
+   2. contracts/workflow-contract.md C6 step 7: full rewrite from
+      "Test report (inline python3)" to "Upload test results
+      (actions/upload-artifact@v4)". The "must NOT inline-parse,
+      write to GITHUB_STEP_SUMMARY, or post annotations" clauses
+      are now part of the contract to prevent regression.
+
+   3. contracts/workflow-contract.md C7: swapped the "no
+      actions/upload-artifact" prohibition for a narrowly scoped
+      allowance ("permitted only in step 7, only for *.trx files,
+      only with artifact name 'test-results'"). The if: always()
+      carve-out clause now points at "Upload test results" instead
+      of "Test report".
+
+   4. research.md D12: revised again. Records that revision 1
+      (inline parser) was tried and reverted, and that the chosen
+      pattern is artifact-only. Rejected alternatives now include
+      the inline-parser approach so the rationale is preserved if
+      someone proposes it again later.
+
+   5. Updated the in-document "Amendment 2026-05-24" note at the
+      top of contract C6 to mention both revisions.
+
+  Files written / edited:
+   - .github/workflows/ci.yml                                     (step 7 replaced)
+   - specs/005-ci-pipeline/contracts/workflow-contract.md         (C6 step 7 + C7 swap; amendment note expanded)
+   - specs/005-ci-pipeline/research.md                            (D12 revised a second time)
+   - ai-artifacts/agent_log.txt                                   (this entry)
+
+  Final workflow shape (7 steps, 53 lines):
+   1. Checkout
+   2. Setup .NET 10
+   3. Restore NuGet cache
+   4. Restore solution
+   5. Build (Release)
+   6. Test (Release)    -- two loggers: console + trx
+   7. Upload test results  -- uses: actions/upload-artifact@v4, if: always()
+
+Decision: accepted
+
+Reason:
+  Removes ~20 lines of bespoke YAML, replaces with a 5-line first-
+  party action call. The user's "too complex and custom" diagnosis
+  was accurate. Inline counts are still visible via the console
+  logger; the structured data is preserved via the TRX artifact.
+  No new principle violations: actions/upload-artifact@v4 is a
+  first-party github action in the same @v4 family as the other
+  three we already use. Permissions still contents: read only.
+  No secrets. No third-party marketplace action.
+
+Open follow-ups / not yet done:
+  - Quickstart V1 (T019) should now also confirm the "test-results"
+    artifact appears in the run page's Artifacts section and that
+    its zip contains four .trx files (one per test project).
+  - Decide later (separate amendment, if ever): retention-days
+    tuning on the artifact, or a CI-side test-history dashboard.
+    Not done now.

@@ -72,7 +72,9 @@ jobs:
 
 ## C6 — Steps (ordered)
 
-The job MUST contain exactly these six steps in this order, with these names. Optional fields not listed below MAY be added by the implementer if they don't change observable behaviour; mandatory fields below MUST appear.
+The job MUST contain exactly these **seven** steps in this order, with these names. Optional fields not listed below MAY be added by the implementer if they don't change observable behaviour; mandatory fields below MUST appear.
+
+> **Amendment 2026-05-24**: step 6 was extended with two `--logger` flags and a new step 7 (`Upload test results`) was added in response to the request "need to see how many tests passed". A first revision used inline Python to render a Markdown summary; a second revision (same day) replaced that bespoke parser with `actions/upload-artifact@v4` so the TRX files are simply uploaded as a downloadable artifact. The current contract reflects the second revision. Both revisions are captured in research.md D12-revised and in `ai-artifacts/agent_log.txt`.
 
 ### Step 1 — `Checkout`
 
@@ -138,14 +140,35 @@ The job MUST contain exactly these six steps in this order, with these names. Op
 
 ```yaml
 - name: Test (Release)
-  run: dotnet test FinanceTracker.slnx --no-build --configuration Release --verbosity minimal
+  run: dotnet test FinanceTracker.slnx --no-build --configuration Release --logger "console;verbosity=normal" --logger "trx;LogFileName=test-results.trx"
 ```
 
 - `--no-build` MUST be present (the previous step built — constitution clause).
 - `--configuration Release` MUST be present (D7) — together with `--no-build`, this points `dotnet test` at the Release-built binaries.
 - Runs all four test projects in one invocation (D5).
-- xUnit v3's default console logger is used; failing tests appear with full names and messages (FR-012).
-- Failure fails the run (default behaviour).
+- Two `--logger` flags are mandatory:
+  - `console;verbosity=normal` — surfaces per-project `Passed!  - Failed: 0, Passed: N, Skipped: 0` lines in the step's inline log (FR-012 + test-report visibility).
+  - `trx;LogFileName=test-results.trx` — emits a TRX file per test project under that project's `TestResults/` directory; consumed by step 7.
+- Failure fails the run (default behaviour). Tests must still short-circuit if step 5 failed (no `if: always()` here).
+
+### Step 7 — `Upload test results`
+
+```yaml
+- name: Upload test results
+  if: always()
+  uses: actions/upload-artifact@v4
+  with:
+    name: test-results
+    path: src/backend/FinanceTracker/**/TestResults/*.trx
+    if-no-files-found: ignore
+```
+
+- `if: always()` MUST be present. This is the **only** step in the workflow allowed to use `if: always()`; without it, a failed test run would not upload the TRX files developers need to diagnose the failure. C7 is amended below to reflect this carve-out.
+- `actions/upload-artifact@v4` is a **first-party GitHub action** (same family as the other three used in this workflow); no third-party marketplace action is introduced.
+- `path:` uses an absolute repo-rooted glob (not the job's `working-directory` default — `upload-artifact` does not consume `defaults.run.working-directory` because it's not a `run:` step).
+- `if-no-files-found: ignore` MUST be present. When the build fails before any test runs, no TRX files exist and the step would otherwise warn or fail; `ignore` makes the step a no-op in that case so it does not affect the run's overall conclusion.
+- Default retention (the repository's setting, typically 90 days) is acceptable. Do NOT add `retention-days:` — it's a tuning knob that doesn't belong in this MVP.
+- The step MUST NOT inline-parse the TRX, write to `$GITHUB_STEP_SUMMARY`, or post check-run annotations. Consumption of the TRX is the developer's responsibility (download from the run page, open in Visual Studio / a TRX viewer, or feed into downstream tooling). Inline pass/fail counts are already visible in step 6's log via `--logger "console;verbosity=normal"`.
 
 ## C7 — What the workflow MUST NOT contain
 
@@ -155,10 +178,10 @@ The following clauses harden the feature against scope creep during implementati
 - **No matrix.** Single Linux runner only.
 - **No `secrets.*` references.** The whole workflow MUST work with the default `GITHUB_TOKEN` only (FR-009, SC-005).
 - **No third-party marketplace actions.** Only `actions/checkout@v4`, `actions/setup-dotnet@v4`, `actions/cache@v4`.
-- **No `actions/upload-artifact`.** No TRX, no coverage report, no published binaries.
+- **`actions/upload-artifact` is permitted only in step 7, only for the `*.trx` files emitted by step 6.** No other artifact upload (coverage reports, build binaries, publish output, screenshots, anything else) is permitted. The artifact name MUST be `test-results`.
 - **No `dotnet publish`** step. Build only, no packaging.
 - **No `dotnet format`, `dotnet test --collect`, or linting steps.** Out of scope.
-- **No `if: always()`** on the build/test steps. Earlier failure MUST short-circuit later steps (US2 acceptance scenario 3).
+- **No `if: always()`** on the build/test steps (steps 1–6). Earlier failure MUST short-circuit them (US2 acceptance scenario 3). The only carve-out is **step 7 (Upload test results)**, which MUST use `if: always()` so a failed run still uploads whatever TRX files exist.
 - **No `continue-on-error: true`** anywhere. Every step's failure must fail the run.
 - **No `permissions:` widening beyond `contents: read`.**
 - **No `services:`** block (no Docker side-cars; no Postgres, no Redis).
