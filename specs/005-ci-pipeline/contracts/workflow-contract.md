@@ -74,7 +74,7 @@ jobs:
 
 The job MUST contain exactly these **seven** steps in this order, with these names. Optional fields not listed below MAY be added by the implementer if they don't change observable behaviour; mandatory fields below MUST appear.
 
-> **Amendment 2026-05-24**: step 6 was extended with two `--logger` flags and a new step 7 (`Upload test results`) was added in response to the request "need to see how many tests passed". A first revision used inline Python to render a Markdown summary; a second revision (same day) replaced that bespoke parser with `actions/upload-artifact@v4` so the TRX files are simply uploaded as a downloadable artifact. The current contract reflects the second revision. Both revisions are captured in research.md D12-revised and in `ai-artifacts/agent_log.txt`.
+> **Amendment 2026-05-24 (three revisions, same day)**: step 6 grew test-reporting flags and a new step 7 (`Upload test results`) was added in response to the request "need to see how many tests passed". Revision 1 used inline Python to render a Markdown summary from VSTest `--logger trx` output; revision 2 dropped the parser and just uploaded the TRX as an artifact; revision 3 corrected the test-step command after the first live CI run revealed that `--logger trx` is silently ignored by xUnit v3's pure-MTP test projects — the working syntax is `-- --report-trx --results-directory <path>`. The current contract reflects revision 3. All three revisions are captured in research.md D12-revised and in `ai-artifacts/agent_log.txt`.
 
 ### Step 1 — `Checkout`
 
@@ -140,15 +140,17 @@ The job MUST contain exactly these **seven** steps in this order, with these nam
 
 ```yaml
 - name: Test (Release)
-  run: dotnet test FinanceTracker.slnx --no-build --configuration Release --logger "console;verbosity=normal" --logger "trx;LogFileName=test-results.trx"
+  run: dotnet test FinanceTracker.slnx --no-build --configuration Release -- --report-trx --results-directory ${{ github.workspace }}/TestResults
 ```
 
 - `--no-build` MUST be present (the previous step built — constitution clause).
 - `--configuration Release` MUST be present (D7) — together with `--no-build`, this points `dotnet test` at the Release-built binaries.
 - Runs all four test projects in one invocation (D5).
-- Two `--logger` flags are mandatory:
-  - `console;verbosity=normal` — surfaces per-project `Passed!  - Failed: 0, Passed: N, Skipped: 0` lines in the step's inline log (FR-012 + test-report visibility).
-  - `trx;LogFileName=test-results.trx` — emits a TRX file per test project under that project's `TestResults/` directory; consumed by step 7.
+- The `--` stop-parsing token MUST precede the MTP-native flags. Everything after `--` is forwarded to the **Microsoft.Testing.Platform (MTP) runner** that xUnit v3 ships with — see research D12.
+- MTP flags after `--`:
+  - `--report-trx` — emits one `.trx` file per test project. xUnit v3 is a **pure-MTP** test platform (no `Microsoft.NET.Test.Sdk`, no `xunit.runner.visualstudio`), so the VSTest `--logger trx` flag does NOT work here; only the MTP-native `--report-trx` does.
+  - `--results-directory ${{ github.workspace }}/TestResults` — pins all TRX output to a single, well-known directory at the workspace root. Without this, each test project's MTP runner writes its TRX next to its own assembly (under `bin/Release/net10.0/TestResults/`), which makes the artifact glob more fragile and less self-evident.
+- xUnit v3's MTP runner prints its own per-project pass/fail summary to stdout by default; no `--output Detailed` / `--logger console` flag is needed for inline visibility.
 - Failure fails the run (default behaviour). Tests must still short-circuit if step 5 failed (no `if: always()` here).
 
 ### Step 7 — `Upload test results`
@@ -159,16 +161,16 @@ The job MUST contain exactly these **seven** steps in this order, with these nam
   uses: actions/upload-artifact@v4
   with:
     name: test-results
-    path: src/backend/FinanceTracker/**/TestResults/*.trx
+    path: TestResults
     if-no-files-found: ignore
 ```
 
 - `if: always()` MUST be present. This is the **only** step in the workflow allowed to use `if: always()`; without it, a failed test run would not upload the TRX files developers need to diagnose the failure. C7 is amended below to reflect this carve-out.
 - `actions/upload-artifact@v4` is a **first-party GitHub action** (same family as the other three used in this workflow); no third-party marketplace action is introduced.
-- `path:` uses an absolute repo-rooted glob (not the job's `working-directory` default — `upload-artifact` does not consume `defaults.run.working-directory` because it's not a `run:` step).
+- `path: TestResults` resolves relative to `$GITHUB_WORKSPACE` (the runner's repo root). It MUST match the directory specified by step 6's `--results-directory ${{ github.workspace }}/TestResults` argument; if those two ever drift, the artifact will be empty.
 - `if-no-files-found: ignore` MUST be present. When the build fails before any test runs, no TRX files exist and the step would otherwise warn or fail; `ignore` makes the step a no-op in that case so it does not affect the run's overall conclusion.
 - Default retention (the repository's setting, typically 90 days) is acceptable. Do NOT add `retention-days:` — it's a tuning knob that doesn't belong in this MVP.
-- The step MUST NOT inline-parse the TRX, write to `$GITHUB_STEP_SUMMARY`, or post check-run annotations. Consumption of the TRX is the developer's responsibility (download from the run page, open in Visual Studio / a TRX viewer, or feed into downstream tooling). Inline pass/fail counts are already visible in step 6's log via `--logger "console;verbosity=normal"`.
+- The step MUST NOT inline-parse the TRX, write to `$GITHUB_STEP_SUMMARY`, or post check-run annotations. Consumption of the TRX is the developer's responsibility (download from the run page, open in Visual Studio / a TRX viewer, or feed into downstream tooling). Inline pass/fail counts come from xUnit v3's default MTP console output in step 6's log.
 
 ## C7 — What the workflow MUST NOT contain
 

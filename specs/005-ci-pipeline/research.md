@@ -156,18 +156,26 @@ This document resolves the technical unknowns surfaced by the Technical Context 
 
 ## D12 — Logging verbosity and test report
 
-**Decision (revised twice on 2026-05-24)**:
+**Decision (revised three times on 2026-05-24)**:
 - `dotnet build`: `--verbosity minimal`.
-- `dotnet test`: drop `--verbosity minimal`; use two `--logger` flags — `console;verbosity=normal` for inline pass/fail counts and `trx;LogFileName=test-results.trx` for a structured per-project report.
-- New step 7: `actions/upload-artifact@v4` uploads the TRX files under the artifact name `test-results` so reviewers can download and inspect them with Visual Studio or any TRX viewer.
+- `dotnet test`: drop `--verbosity minimal`. Append `-- --report-trx --results-directory ${{ github.workspace }}/TestResults` (MTP-native flags after the `--` stop-parsing token).
+- New step 7: `actions/upload-artifact@v4` uploads the workspace-rooted `TestResults/` directory under the artifact name `test-results`.
 
-**Rationale**: The original `--verbosity minimal` test step hid the per-project `Passed: N / Failed: N` lines developers expect to see in CI logs. The first revision attempted to render a Markdown summary at the top of the run page using an inline `python3` script that parsed the TRX files. That worked but introduced ~25 lines of bespoke XML-parsing logic embedded in YAML — high-maintenance for a small visibility win. The second revision deletes the parser and uses the standard pattern: emit TRX during `dotnet test`, upload it with `actions/upload-artifact@v4`. The console logger already covers the at-a-glance "how many passed" question inside the run log; the artifact handles "give me the structured data".
+**Rationale (revision 3 — the load-bearing one)**: The project's test projects reference **`xunit.v3` only** (no `Microsoft.NET.Test.Sdk`, no `xunit.runner.visualstudio`) and run as `OutputType=Exe`. That makes them **pure-MTP (Microsoft.Testing.Platform)** test platforms, not VSTest. The consequence: the VSTest `--logger trx` flag is silently ignored by these projects (no error, no TRX, just an empty `TestResults/`). The MTP-native equivalent is `--report-trx`, but it must be passed *after* the `--` stop-parsing token so `dotnet test` forwards it to the MTP runner rather than trying to interpret it itself. Pinning `--results-directory` to `${{ github.workspace }}/TestResults` keeps every project's TRX in a single, predictable place so the upload step doesn't have to glob deep into each test project's `bin/Release/net10.0/TestResults/`.
 
-**Alternatives considered (after the second revision)**:
-- Inline `python3` parser writing to `$GITHUB_STEP_SUMMARY`: tried and reverted. Custom, brittle, hard to read.
-- Third-party reporter actions (e.g. `dorny/test-reporter`, `EnricoMi/publish-unit-test-result-action`): rejected. Would require `checks: write` permissions plus a marketplace dependency — both forbidden by C3 / C7. The artifact-only approach gives ~90% of the value with zero policy change beyond the narrow C7 carve-out for `upload-artifact`.
-- No artifact, no extra logger flags, keep `--verbosity minimal`: rejected. That's the state the user explicitly complained about.
+xUnit v3's MTP runner prints a per-project pass/fail summary to stdout by default; no extra `--logger console` flag is needed for inline visibility (and adding one would be ignored anyway, for the same reason `--logger trx` was).
+
+**Revision history**:
+- **Revision 1** (initial test-report amendment): tried `--logger trx;LogFileName=test-results.trx` + an inline `python3` parser writing to `$GITHUB_STEP_SUMMARY`. Reverted in revision 2 for being too custom (~25 lines of bespoke XML-parsing in YAML).
+- **Revision 2**: kept `--logger trx` + `--logger "console;verbosity=normal"`, replaced the parser with `actions/upload-artifact@v4`. Looked clean. **It didn't work** — the first live CI run produced "No files were found with the provided path: src/backend/FinanceTracker/**/TestResults/*.trx", because both `--logger` flags were VSTest-only and silently ignored by xUnit v3's MTP runner.
+- **Revision 3 (current)**: replaced both `--logger` flags with the MTP-native `-- --report-trx --results-directory <abs path>`. Adjusted the artifact's `path` to match the chosen absolute results directory.
+
+**Alternatives considered (revision 3)**:
+- Add `Microsoft.NET.Test.Sdk` + `xunit.runner.visualstudio` to the test projects to re-enable the VSTest-style `--logger trx` path: rejected. That's a production-side change just to make CI work, and it adds two NuGet packages the project deliberately doesn't reference today. The MTP-native flag set is the supported, idiomatic xunit.v3 path.
+- Use `dotnet test -- --report-trx` without `--results-directory` and let each project's TRX land in `bin/Release/net10.0/TestResults/`: rejected. The upload glob would have to be `src/backend/FinanceTracker/**/TestResults/*.trx` — works, but is more fragile than a single pinned directory.
+- Use `${{ runner.temp }}/TestResults` instead of `${{ github.workspace }}/TestResults`: rejected. `runner.temp` is outside the workspace and `actions/upload-artifact`'s `path:` becomes harder to reason about (it would need to be an absolute path, which is allowed but less idiomatic).
 - Set a custom `retention-days` on the artifact: rejected. The repository default is fine; tuning that knob is out of scope for the MVP.
+- Third-party reporter actions (e.g. `dorny/test-reporter`, `EnricoMi/publish-unit-test-result-action`): still rejected, for the same C3 / C7 reasons as before.
 
 ---
 

@@ -3737,3 +3737,97 @@ Open follow-ups / not yet done:
   - Decide later (separate amendment, if ever): retention-days
     tuning on the artifact, or a CI-side test-history dashboard.
     Not done now.
+
+
+=========================================================================
+Timestamp: 2026-05-24
+Model / tool: Claude Code (Opus 4.7, 1M context) - third revision of
+              the test-reporting amendment to feature 005-ci-pipeline.
+              Triggered by the first live CI run failing to find any
+              TRX files.
+-------------------------------------------------------------------------
+Prompt:
+  "No report was created. Run actions/upload-artifact@v4 ...
+   No files were found with the provided path:
+   src/backend/FinanceTracker/**/TestResults/*.trx.
+   No artifacts will be uploaded."
+
+  (User pasted the live failure log from the first PR run of the
+   revision-2 workflow.)
+
+AI suggestion:
+  Root cause: the test projects in this repo are pure-MTP
+  (Microsoft.Testing.Platform) test platforms, not VSTest. They
+  reference xunit.v3 only - NO Microsoft.NET.Test.Sdk, NO
+  xunit.runner.visualstudio - and run as OutputType=Exe. In that
+  configuration, the VSTest `--logger trx;LogFileName=...` flag is
+  silently ignored by dotnet test (no error, no TRX). The
+  --logger "console;verbosity=normal" flag was also silently
+  ignored, but xunit.v3's default MTP console output is already
+  reasonable so the inline-visibility goal was met anyway.
+
+  The MTP-native equivalent is `--report-trx`, which must be passed
+  AFTER the `--` stop-parsing token. Optionally pair with
+  `--results-directory <abs path>` to pin TRX output to a single
+  known location instead of letting each test project write into
+  its own bin/Release/<tfm>/TestResults/.
+
+  Changes:
+   1. .github/workflows/ci.yml step 6: replaced the two VSTest
+      --logger flags with the MTP-native
+      `-- --report-trx --results-directory ${{ github.workspace }}/TestResults`.
+      Net effect: TRX files now land in <repo-root>/TestResults/.
+
+   2. .github/workflows/ci.yml step 7: changed `path:` from the
+      deep glob `src/backend/FinanceTracker/**/TestResults/*.trx`
+      to the single directory `TestResults` (workspace-rooted),
+      matching where step 6 now writes.
+
+   3. contracts/workflow-contract.md C6 step 6: rewritten to
+      document the MTP vs VSTest distinction, the `--` token
+      requirement, and the absolute `--results-directory` choice.
+      C6 step 7: `path:` updated to match.
+
+   4. contracts/workflow-contract.md C6 amendment-note: extended
+      to record the three revisions (1: inline python parser,
+      2: artifact-only upload with VSTest --logger, 3: MTP-native
+      --report-trx after --) so the next reader sees the full
+      revision history without grepping agent_log.
+
+   5. research.md D12: rewritten with a full revision history
+      and a sharp statement of why revisions 1 and 2 didn't work
+      against this codebase. Rejected alternatives expanded
+      (adding Microsoft.NET.Test.Sdk just for CI - tempting but
+      a production-side change for a CI need; using runner.temp;
+      using deeper glob without --results-directory).
+
+  Files written / edited:
+   - .github/workflows/ci.yml                                     (step 6 + step 7 updated)
+   - specs/005-ci-pipeline/contracts/workflow-contract.md         (C6 step 6, C6 step 7, amendment note)
+   - specs/005-ci-pipeline/research.md                            (D12 rewritten with revision 3)
+   - ai-artifacts/agent_log.txt                                   (this entry)
+
+Decision: accepted
+
+Reason:
+  The first revision-2 CI run produced direct empirical evidence
+  that the VSTest --logger flags are silently no-ops here. The
+  MTP-native path (`-- --report-trx`) is the documented xunit.v3
+  way of doing this and requires no production-side csproj
+  changes. The contract's "no third-party action" and "narrow
+  upload-artifact carve-out for *.trx only" clauses both still
+  hold; the only thing that changed is HOW the TRX files are
+  produced (MTP flags after `--` instead of VSTest --logger).
+
+  Net code change in ci.yml: 2 lines modified, 0 added, 0 removed.
+
+Open follow-ups / not yet done:
+  - Need a second live CI run to confirm TRX files now appear in
+    <repo-root>/TestResults/ and the upload-artifact step uploads
+    them. If this third revision STILL produces no TRX, the next
+    move is to add Microsoft.NET.Test.Sdk + xunit.runner.visualstudio
+    to the test projects (the production-side change rejected
+    above) and revert to VSTest --logger trx. Documenting this
+    fallback here so it doesn't need to be re-derived under stress.
+  - Update T019 / quickstart V1 (still DEFERRED to PR review) to
+    confirm the artifact actually appears and contains 4 TRX files.
