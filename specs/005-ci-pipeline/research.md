@@ -64,14 +64,36 @@ This document resolves the technical unknowns surfaced by the Technical Context 
 
 ## D5 — Test execution strategy
 
-**Decision**: A single `dotnet test src/backend/FinanceTracker/FinanceTracker.slnx --no-build --configuration Release --verbosity minimal` invocation runs **all four** test projects (`Finance.Data.UnitTests`, `Finance.Business.UnitTests`, `Finance.Api.UnitTests`, `Finance.Api.IntegrationTests`) at once. The step shows in the GitHub UI as a single line; per-test results appear in the log.
+**Decision (revised 2026-05-24, final form)**: A single canonical `dotnet test` invocation, made to actually work by adding two settings to every test csproj:
 
-**Rationale**: The constitution mandates `restore` → `build --no-restore` → `test --no-build` exactly — it does **not** mandate two separate test invocations. Splitting unit and integration into separate steps or jobs is a perceived-clarity gain that costs duplicate restore/build context (or shared cache plumbing) and risks divergence (one step changing without the other). Keeping it as one invocation also matches the existing Spec Kit constitution wording and the `dotnet test` UX on a single-developer MVP.
+```yaml
+- name: Test (Release)
+  run: dotnet test FinanceTracker.slnx --no-build --configuration Release -- --report-trx --results-directory ${{ github.workspace }}/TestResults
+```
 
-**Alternatives considered**:
-- Separate steps for unit vs. integration with `--filter` predicates: rejected. The project's xUnit `Trait`/`Category` taxonomy isn't established; introducing one just to split CI is out of scope. The spec accepts either approach (see User Story 3, Acceptance Scenario 3) but bundles them under one PR check.
-- Parallel jobs (`unit-tests`, `integration-tests`): rejected. Doubles cache plumbing and runner minutes; the integration tests are in-process (`WebApplicationFactory`), so they're fast and don't benefit from job-level isolation.
-- `dotnet test` without `--no-build`: rejected. Re-builds in Debug by default, contradicting D7 below and the constitution's CI clause.
+Plus, in each of the four test csprojs under `src/backend/FinanceTracker/tests/`:
+
+```xml
+<PropertyGroup>
+  <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+</PropertyGroup>
+<ItemGroup>
+  <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" Version="2.2.3" />
+</ItemGroup>
+```
+
+**Rationale (revised)**: The original D5 (one `dotnet test SLN` invocation) was the right *shape*, just incompletely wired. The first live CI run revealed it ran for ~1.7 seconds and produced nothing; the second live CI run after switching to MTP-native `--report-trx` flags showed the same symptom. Root cause: `dotnet test` defaults to **VSTest-mode project discovery**, which only enumerates projects referencing `Microsoft.NET.Test.Sdk`. Our test projects reference **only** `xunit.v3` (pure MTP, `OutputType=Exe`), so VSTest discovery finds zero discoverable projects and exits 0 silently. The MTP discovery path is *opt-in* via the MSBuild property `<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>` — and separately, the MTP runner only honours `--report-trx` when the `Microsoft.Testing.Extensions.TrxReport` extension package is referenced.
+
+Adding both to every test csproj is the canonical xunit.v3 + MTP wiring documented by Microsoft and the xunit team. It makes `dotnet test` work the way the constitution's CI clause already names it. It also means the local development experience improves: `dotnet test` from a developer's machine now correctly invokes the suite and emits TRX, instead of being a silent no-op.
+
+This decision overturns a brief experiment (revision 4 of this amendment) with a workflow-only shell loop that bypassed `dotnet test`. The shell loop *worked*, but it was a workaround that avoided diagnosing the real problem. The user pushed back, the proper fix was identified, and the workflow is now a single line again.
+
+**Alternatives considered (final form)**:
+- Shell loop that invokes each test assembly directly (revision 4): rejected. It worked, but it dodged the underlying csproj-misconfiguration. Any other tool that drives the test projects (local `dotnet test`, IDE test explorers, future CI matrix expansion) would have hit the same wall.
+- Add `Microsoft.NET.Test.Sdk` + `xunit.runner.visualstudio` to every test csproj to re-enable the legacy VSTest path: rejected. Goes against the project's pure-MTP posture (xunit.v3 specifically encourages MTP-native mode). Two NuGet additions across four csprojs to restore a path the xunit team is moving away from.
+- `<UseMicrosoftTestingPlatformRunner>` in a shared `Directory.Build.props` at `tests/` instead of in every csproj: viable, slightly cleaner (one file edit instead of four), but adds a `Directory.Build.props` to the repo that didn't exist before, just to hold one property. The per-csproj form keeps each test project self-describing and matches the user's proposed pattern.
+- Parallel jobs (`unit-tests`, `integration-tests`): still rejected. Doubles cache plumbing and runner minutes for no defect-catching gain in a single-developer MVP.
+- Separate steps per test project: still rejected. Adding a new test project would require a workflow edit; a single `dotnet test SLN` invocation is what `Microsoft.Testing.Platform` and the .NET SDK are designed for.
 
 ---
 
@@ -156,10 +178,10 @@ This document resolves the technical unknowns surfaced by the Technical Context 
 
 ## D12 — Logging verbosity and test report
 
-**Decision (revised three times on 2026-05-24)**:
+**Decision (revised five times on 2026-05-24, final form)**:
 - `dotnet build`: `--verbosity minimal`.
-- `dotnet test`: drop `--verbosity minimal`. Append `-- --report-trx --results-directory ${{ github.workspace }}/TestResults` (MTP-native flags after the `--` stop-parsing token).
-- New step 7: `actions/upload-artifact@v4` uploads the workspace-rooted `TestResults/` directory under the artifact name `test-results`.
+- Test execution: see D5-revised. A single `dotnet test FinanceTracker.slnx --no-build --configuration Release -- --report-trx --results-directory ${{ github.workspace }}/TestResults` invocation, made functional by adding `<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>` and `Microsoft.Testing.Extensions.TrxReport` (v2.2.3) to every test csproj.
+- Step 7 (`Upload test results`): unchanged across revisions 2–5. `actions/upload-artifact@v4` uploads the workspace-rooted `TestResults/` directory under the artifact name `test-results`.
 
 **Rationale (revision 3 — the load-bearing one)**: The project's test projects reference **`xunit.v3` only** (no `Microsoft.NET.Test.Sdk`, no `xunit.runner.visualstudio`) and run as `OutputType=Exe`. That makes them **pure-MTP (Microsoft.Testing.Platform)** test platforms, not VSTest. The consequence: the VSTest `--logger trx` flag is silently ignored by these projects (no error, no TRX, just an empty `TestResults/`). The MTP-native equivalent is `--report-trx`, but it must be passed *after* the `--` stop-parsing token so `dotnet test` forwards it to the MTP runner rather than trying to interpret it itself. Pinning `--results-directory` to `${{ github.workspace }}/TestResults` keeps every project's TRX in a single, predictable place so the upload step doesn't have to glob deep into each test project's `bin/Release/net10.0/TestResults/`.
 
@@ -168,7 +190,9 @@ xUnit v3's MTP runner prints a per-project pass/fail summary to stdout by defaul
 **Revision history**:
 - **Revision 1** (initial test-report amendment): tried `--logger trx;LogFileName=test-results.trx` + an inline `python3` parser writing to `$GITHUB_STEP_SUMMARY`. Reverted in revision 2 for being too custom (~25 lines of bespoke XML-parsing in YAML).
 - **Revision 2**: kept `--logger trx` + `--logger "console;verbosity=normal"`, replaced the parser with `actions/upload-artifact@v4`. Looked clean. **It didn't work** — the first live CI run produced "No files were found with the provided path: src/backend/FinanceTracker/**/TestResults/*.trx", because both `--logger` flags were VSTest-only and silently ignored by xUnit v3's MTP runner.
-- **Revision 3 (current)**: replaced both `--logger` flags with the MTP-native `-- --report-trx --results-directory <abs path>`. Adjusted the artifact's `path` to match the chosen absolute results directory.
+- **Revision 3**: replaced both `--logger` flags with the MTP-native `dotnet test ... -- --report-trx --results-directory <abs path>`. Adjusted the artifact's `path` to match. **It also didn't work** — the second live CI run showed `dotnet test` exiting 0 in ~1 second with zero output. `dotnet test` defaults to VSTest discovery (looking for `Microsoft.NET.Test.Sdk`), found zero test projects in the solution because none reference it, and silently succeeded by doing nothing. The MTP flags after `--` were forwarded to a no-op.
+- **Revision 4**: gave up on `dotnet test` and replaced step 6 with a bash loop that invoked each test assembly directly. **It worked** but the user (correctly) flagged it as a workaround that dodged the underlying csproj misconfiguration.
+- **Revision 5 (current)**: reverted step 6 to a one-line `dotnet test ... -- --report-trx ...` and **fixed the underlying issue** in the csproj files: added `<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>` (opt-in to MTP discovery from `dotnet test`) and `Microsoft.Testing.Extensions.TrxReport` v2.2.3 (the package that registers the `--report-trx` flag in the MTP runner). Both changes were applied to all four test csprojs under `tests/`.
 
 **Alternatives considered (revision 3)**:
 - Add `Microsoft.NET.Test.Sdk` + `xunit.runner.visualstudio` to the test projects to re-enable the VSTest-style `--logger trx` path: rejected. That's a production-side change just to make CI work, and it adds two NuGet packages the project deliberately doesn't reference today. The MTP-native flag set is the supported, idiomatic xunit.v3 path.

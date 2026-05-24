@@ -74,7 +74,12 @@ jobs:
 
 The job MUST contain exactly these **seven** steps in this order, with these names. Optional fields not listed below MAY be added by the implementer if they don't change observable behaviour; mandatory fields below MUST appear.
 
-> **Amendment 2026-05-24 (three revisions, same day)**: step 6 grew test-reporting flags and a new step 7 (`Upload test results`) was added in response to the request "need to see how many tests passed". Revision 1 used inline Python to render a Markdown summary from VSTest `--logger trx` output; revision 2 dropped the parser and just uploaded the TRX as an artifact; revision 3 corrected the test-step command after the first live CI run revealed that `--logger trx` is silently ignored by xUnit v3's pure-MTP test projects — the working syntax is `-- --report-trx --results-directory <path>`. The current contract reflects revision 3. All three revisions are captured in research.md D12-revised and in `ai-artifacts/agent_log.txt`.
+> **Amendment 2026-05-24 (five revisions, same day)**: step 6 was reshaped five times in response to "need to see how many tests passed".
+> 1. Inline Python parser writing to `$GITHUB_STEP_SUMMARY` (reverted — too custom).
+> 2. VSTest `--logger trx` + `actions/upload-artifact@v4` (no TRX produced — `--logger` was a no-op).
+> 3. `dotnet test ... -- --report-trx ...` (silent no-op — `dotnet test` couldn't discover pure-MTP projects).
+> 4. Shell loop bypassing `dotnet test` to invoke each assembly directly (a workaround that worked but dodged the real problem).
+> 5. **Current**: revert to a clean `dotnet test ... -- --report-trx ...` after fixing the underlying issue — adding `<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>` and a `Microsoft.Testing.Extensions.TrxReport` package reference to every test csproj. This is the canonical xunit.v3 + MTP wiring; the workflow is now one line again. Full history in research.md D5-revised / D12-revised and `ai-artifacts/agent_log.txt`.
 
 ### Step 1 — `Checkout`
 
@@ -146,11 +151,12 @@ The job MUST contain exactly these **seven** steps in this order, with these nam
 - `--no-build` MUST be present (the previous step built — constitution clause).
 - `--configuration Release` MUST be present (D7) — together with `--no-build`, this points `dotnet test` at the Release-built binaries.
 - Runs all four test projects in one invocation (D5).
-- The `--` stop-parsing token MUST precede the MTP-native flags. Everything after `--` is forwarded to the **Microsoft.Testing.Platform (MTP) runner** that xUnit v3 ships with — see research D12.
+- The `--` stop-parsing token MUST precede the MTP-native flags. Everything after `--` is forwarded to the **Microsoft.Testing.Platform (MTP) runner** that xUnit v3 ships with.
 - MTP flags after `--`:
-  - `--report-trx` — emits one `.trx` file per test project. xUnit v3 is a **pure-MTP** test platform (no `Microsoft.NET.Test.Sdk`, no `xunit.runner.visualstudio`), so the VSTest `--logger trx` flag does NOT work here; only the MTP-native `--report-trx` does.
-  - `--results-directory ${{ github.workspace }}/TestResults` — pins all TRX output to a single, well-known directory at the workspace root. Without this, each test project's MTP runner writes its TRX next to its own assembly (under `bin/Release/net10.0/TestResults/`), which makes the artifact glob more fragile and less self-evident.
-- xUnit v3's MTP runner prints its own per-project pass/fail summary to stdout by default; no `--output Detailed` / `--logger console` flag is needed for inline visibility.
+  - `--report-trx` — emits one `.trx` file per test project. Enabled by the `Microsoft.Testing.Extensions.TrxReport` NuGet package, which **must** be referenced by every test csproj (it is — added when this feature was implemented; see research D5-revised). Without that package, MTP silently ignores `--report-trx`.
+  - `--results-directory ${{ github.workspace }}/TestResults` — pins all TRX output to a single, workspace-rooted directory so step 7 finds them regardless of how each test project would otherwise default its output path.
+- This works because the test csprojs declare `<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>` (added when this feature was implemented), which tells `dotnet test` to invoke each test project's embedded MTP runner instead of falling back to VSTest discovery (which would silently no-op, since none of the test projects reference `Microsoft.NET.Test.Sdk`). See research D5-revised for the diagnosis history.
+- xUnit v3's MTP runner prints its own per-project pass/fail summary to stdout by default; no `--logger console` flag is needed for inline visibility.
 - Failure fails the run (default behaviour). Tests must still short-circuit if step 5 failed (no `if: always()` here).
 
 ### Step 7 — `Upload test results`
@@ -189,6 +195,17 @@ The following clauses harden the feature against scope creep during implementati
 - **No `services:`** block (no Docker side-cars; no Postgres, no Redis).
 - **No `env:` block at workflow or job level** for this MVP. Step-level `env:` may be added if needed by a specific command, but none is needed today.
 - **No `global.json`** is added to the repository as part of this feature (D2).
+
+## C7b — Required production-side configuration (added 2026-05-24, revision 5)
+
+The workflow's correctness depends on two settings inside every test csproj under `src/backend/FinanceTracker/tests/`:
+
+1. A `<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>` property in the project's `<PropertyGroup>`. Without it, `dotnet test` falls back to VSTest-mode discovery and silently finds zero test projects (because none reference `Microsoft.NET.Test.Sdk`).
+2. A `<PackageReference Include="Microsoft.Testing.Extensions.TrxReport" Version="2.2.3" />` entry. Without it, the MTP runner silently ignores `--report-trx` and no `.trx` files are emitted.
+
+Both are marked with `<!-- CRITICAL: ... -->` comments in the csproj files so that future maintenance doesn't strip them as cruft. A new test project added under `tests/` MUST include both, or step 6 will silently skip it / fail to report on it.
+
+These are configuration, not behaviour — they don't violate any constitution principle, but they are the load-bearing reason the one-line `dotnet test` invocation works. If C7b is broken (e.g., the package reference is removed), CI will pass but produce no TRX, exactly mimicking the symptom this contract spent four revisions debugging.
 
 ## C8 — Observable outcomes the contract guarantees
 
