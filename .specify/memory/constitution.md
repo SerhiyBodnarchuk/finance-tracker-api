@@ -1,6 +1,56 @@
 <!--
 Sync Impact Report
 ==================
+Version change: 3.0.0 -> 3.0.1
+Bump rationale: PATCH. Test-project wiring in Principle IV is refined to
+match the running implementation after feature 005-ci-pipeline shipped a
+GitHub Actions CI workflow. No principle is added, removed, or redefined.
+
+Specifically:
+- "All four MUST use xUnit v3 (xunit.v3, OutputType=Exe)" relaxes to
+  "xunit.v3" only. The OutputType=Exe wording assumed pure-MTP
+  (Microsoft.Testing.Platform) execution; that path proved fragile under
+  the .NET 10 SDK's dotnet test integration (version mismatches between
+  Microsoft.Testing.Extensions.MSBuild and Microsoft.Testing.Extensions.
+  TrxReport caused IDataConsumer TypeLoadExceptions). The test projects
+  now follow the standard VSTest path:
+    + Microsoft.NET.Test.Sdk 17.12.0
+    + xunit.runner.visualstudio 3.0.2 (the v3-compatible VSTest adapter)
+    - OutputType=Exe removed
+  This is configuration, not a principle change. The test suite still
+  uses xunit.v3 as the framework and Xunit.Assert as the assertion API
+  (FluentAssertions remains forbidden); Moq 4.20.x and
+  Microsoft.AspNetCore.Mvc.Testing remain unchanged.
+
+- The "Technology & Scope Constraints" Testing bullet gains an explicit
+  mention of Microsoft.NET.Test.Sdk and xunit.runner.visualstudio for the
+  same reason.
+
+- The "CI" bullet's reference to `.github/workflows/ci.yml` now points
+  to an actually-present file (feature 005-ci-pipeline shipped it).
+
+Modified principles:
+- IV. Test-First with xUnit v3 — OutputType=Exe removed; VSTest adapter
+  + Microsoft.NET.Test.Sdk acknowledged.
+
+Renamed principles: none.
+Added sections: none.
+Removed sections: none.
+
+Templates / runtime docs touched:
+- CLAUDE.md — Commands section's test-stack description updated to
+  reflect the VSTest-path package set; no behaviour change.
+- .specify/templates/*.md — no edits required (no principle-specific
+  gates encode OutputType=Exe).
+- specs/005-ci-pipeline/{research,contracts/workflow-contract,plan,
+  data-model,quickstart,tasks}.md — already describe the final
+  implementation; iteration history pruned where it had become noise.
+- ai-artifacts/agent_log.txt — appended with this cleanup entry.
+
+Deferred items / known out-of-sync documents: same set as v3.0.0
+(unchanged by this patch).
+
+----------------------------------------------------------------------
 Version change: 2.0.1 -> 3.0.0
 Bump rationale: MAJOR. Principle I (Three-Layer Architecture Boundaries,
 NON-NEGOTIABLE) is redefined in a backwards-incompatible way:
@@ -422,14 +472,16 @@ Tests MUST live in dedicated test projects under
 production project (`Finance.Data.UnitTests`, `Finance.Business.UnitTests`,
 `Finance.Api.UnitTests`) plus a dedicated `Finance.Api.IntegrationTests`
 project for end-to-end API coverage. All four MUST use **xUnit v3**
-(`xunit.v3`, `OutputType=Exe`) as the runner and the **built-in
-`Xunit.Assert` API** for assertions. **FluentAssertions is NOT used in this
-project** — no third-party assertion library is referenced. Mocking in unit
-tests uses **Moq** (`Moq` 4.20.x) where the system under test needs to be
-isolated from its collaborators; integration tests against the API use
+(`xunit.v3`) as the test framework, executed through the standard
+**`Microsoft.NET.Test.Sdk`** (17.x) + **`xunit.runner.visualstudio`** (3.x,
+the v3-compatible VSTest adapter) pair, and the **built-in `Xunit.Assert`
+API** for assertions. **FluentAssertions is NOT used in this project** —
+no third-party assertion library is referenced. Mocking in unit tests uses
+**Moq** (`Moq` 4.20.x) where the system under test needs to be isolated
+from its collaborators; integration tests against the API use
 **`Microsoft.AspNetCore.Mvc.Testing`**'s `WebApplicationFactory<Program>`.
-Both are test-only dependencies and MUST NOT be referenced from production
-code. Tests SHOULD be written before or alongside the production code they
+All four are test-only dependencies and MUST NOT be referenced from
+production code. Tests SHOULD be written before or alongside the production code they
 exercise; a feature is not "done" until its test coverage compiles, runs,
 and passes locally and in CI.
 
@@ -535,12 +587,16 @@ MUST go through the amendment process in Governance.
 - API documentation: `Microsoft.AspNetCore.OpenApi` +
   `Scalar.AspNetCore`. Swashbuckle MUST NOT be reintroduced.
 - Testing: **xUnit v3** with the built-in `Xunit.Assert` API
-  (see Principle IV). FluentAssertions is NOT used. Mocking via **Moq**
-  (`Moq` 4.20.x) for unit tests; integration tests use
-  **`Microsoft.AspNetCore.Mvc.Testing`**'s `WebApplicationFactory<Program>`.
-  Both are test-only and MUST NOT be referenced from production code.
-- CI: GitHub Actions, at `.github/workflows/ci.yml`, with no external
-  dependencies.
+  (see Principle IV). FluentAssertions is NOT used. Execution via
+  **`Microsoft.NET.Test.Sdk`** (17.x) + **`xunit.runner.visualstudio`**
+  (3.x). Mocking via **Moq** (`Moq` 4.20.x) for unit tests; integration
+  tests use **`Microsoft.AspNetCore.Mvc.Testing`**'s
+  `WebApplicationFactory<Program>`. All four are test-only dependencies
+  and MUST NOT be referenced from production code.
+- CI: **GitHub Actions** at `.github/workflows/ci.yml` (shipped by
+  feature 005-ci-pipeline), with no external dependencies. Runs on
+  `ubuntu-latest`, restores → builds in `Release` → tests via the
+  VSTest path on every pull request to `main` or `development`.
 
 **Out of scope** for the MVP — these MUST NOT be added without an amendment:
 
@@ -630,4 +686,4 @@ lives in `CLAUDE.md`. Where `CLAUDE.md` adds operational detail beyond this
 constitution, that detail is authoritative for behaviour; where the two
 disagree on a principle, this constitution governs.
 
-**Version**: 3.0.0 | **Ratified**: 2026-05-18 | **Last Amended**: 2026-05-21
+**Version**: 3.0.1 | **Ratified**: 2026-05-18 | **Last Amended**: 2026-05-24
