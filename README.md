@@ -271,17 +271,17 @@ Accept: application/json
 
 The request body is an envelope of exactly two fields: `type` (a `ReportType` enum value) and `data` (a payload whose shape depends on `type`). The response is an **aggregated summary** — totals plus a per-category breakdown. The underlying transactions are **not** returned; a consumer that needs them queries the transactions endpoint with a date filter separately.
 
-Initial supported report type:
+Supported report types:
 
 | Type | `data` fields | Description |
 |---|---|---|
 | `Period` | `start` (date), `end` (date) | Aggregates transactions whose timestamp falls in `[start, end]` (inclusive on both ends, interpreted as `start 00:00:00 .. end 23:59:59`). |
+| `IsoWeek` | `week` (string, ISO 8601 — e.g., `"2026-W19"`) | Aggregates transactions whose timestamp falls in the named ISO week (Monday 00:00:00 through Sunday 23:59:59). |
 
 Planned future report types:
 
 | Type | `data` fields | Description |
 |---|---|---|
-| `IsoWeek` | `week` (string, ISO 8601 — e.g., `"2026-W19"`) | Aggregates transactions whose timestamp falls in the named ISO week. |
 | `Month` | `year` (int), `month` (int) | Aggregates transactions whose timestamp falls in the calendar month. |
 
 ### ISO-week report example
@@ -368,13 +368,13 @@ The `ReportsController` delegates to `IReportService`, which resolves the `Repor
 5. Build the per-category breakdown with multi-category attribution and the income-first / expense-second / alphabetical-within sort.
 6. Return a `ReportResult`.
 
-Currently implemented strategy:
+Currently implemented strategies:
 
 - `PeriodReportStrategy` (`ReportType.Period`)
-
-Planned strategies (the enum values exist; the strategies are not yet scaffolded):
-
 - `IsoWeekReportStrategy` (`ReportType.IsoWeek`)
+
+Planned strategies (the enum values are not yet present; both the enum entry and the strategy need to be added):
+
 - `MonthReportStrategy` (`ReportType.Month`)
 
 Adding a new strategy means: define its `data` payload DTO under `Finance.Business/Dtos/Reports/`, implement `IReportStrategy` under `Finance.Business/Services/Reports/`, and register it as a DI singleton in `Program.cs`. The factory picks it up automatically because it's built from the DI-resolved `IEnumerable<IReportStrategy>`.
@@ -450,11 +450,11 @@ dotnet run --project Finance.Api
 The API exposes its OpenAPI document and the Scalar reference UI in Development mode only:
 
 ```text
-https://localhost:7266/openapi/v1.json   (OpenAPI document)
-https://localhost:7266/scalar/v1         (Scalar UI)
+https://localhost:7235/openapi/v1.json   (OpenAPI document)
+https://localhost:7235/scalar/v1         (Scalar UI)
 ```
 
-The HTTP binding (`http://localhost:5235`) is also available; see `Finance.Api/Properties/launchSettings.json` for current ports.
+The HTTP binding (`http://localhost:5182`) is also available; see `Finance.Api/Properties/launchSettings.json` for current ports.
 
 Data is seeded on startup. Restarting the application resets the data.
 
@@ -482,17 +482,15 @@ dotnet test
 
 ## CI
 
-> Status: **planned, not yet implemented.** `.github/workflows/ci.yml` does not exist yet.
-
-When added, GitHub Actions will run on every push and pull request:
+GitHub Actions runs on every pull request to `main` or `development` (see [`.github/workflows/ci.yml`](.github/workflows/ci.yml)). Each PR runs on `ubuntu-latest` against .NET 10:
 
 ```bash
-dotnet restore
-dotnet build --no-restore
-dotnet test --no-build
+dotnet restore FinanceTracker.slnx
+dotnet build  FinanceTracker.slnx --no-restore --configuration Release --verbosity minimal
+dotnet test   FinanceTracker.slnx --no-build  --configuration Release
 ```
 
-The CI pipeline does not require real secrets, Docker, SQL Server, LocalDB, or any external database.
+NuGet packages are cached at `~/.nuget/packages` keyed on the hash of all `*.csproj` files; concurrent runs on the same ref cancel earlier ones. The CI pipeline does not require real secrets, Docker, SQL Server, LocalDB, or any external database.
 
 ## AI-Assisted Development Log
 
@@ -576,6 +574,6 @@ Milestones:
 4. ✅ Add report factory and initial period report strategy in the Business layer.
 5. ⬜ Add JSON and CSV export endpoint using content negotiation.
 6. ✅ Add unit and integration tests (xUnit v3 + Moq for unit isolation; `Microsoft.AspNetCore.Mvc.Testing` for end-to-end HTTP coverage).
-7. ⬜ Add GitHub Actions CI.
+7. ✅ Add GitHub Actions CI.
 8. ⬜ Add MCP-style context snapshot and replay flow.
 9. ⬜ Complete assignment artifacts and demo recording.

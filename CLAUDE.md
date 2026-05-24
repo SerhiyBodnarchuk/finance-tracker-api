@@ -14,7 +14,7 @@ The authoritative documents are: `.specify/memory/constitution.md` (project prin
 - Three production projects under `src/backend/FinanceTracker/`: `Finance.Api`, `Finance.Business`, `Finance.Data`.
 - Four test projects under `src/backend/FinanceTracker/tests/`: `Finance.Data.UnitTests`, `Finance.Business.UnitTests`, `Finance.Api.UnitTests`, `Finance.Api.IntegrationTests`.
 - AI artifacts: `ai-artifacts/` (early specs under `ai-artifacts/Specifications/`; running log in `agent_log.txt`).
-- Kestrel binding (dev): `https://localhost:7266` / `http://localhost:5235` — see `Finance.Api/Properties/launchSettings.json`.
+- Kestrel binding (dev): `https://localhost:7235` / `http://localhost:5182` — see `Finance.Api/Properties/launchSettings.json`.
 
 ## API docs: Scalar, not Swagger
 
@@ -51,7 +51,7 @@ Reports go through a single endpoint `POST /api/reports` that takes a two-field 
 { "type": "Period", "data": { "start": "2026-05-01", "end": "2026-05-31" } }
 ```
 
-A `ReportStrategyFactory` resolves the `ReportType` enum value to an `IReportStrategy`. Each strategy reads its strongly-typed `data` payload (`PeriodReportData`, `IsoWeekReportData`, …), validates, resolves the payload to a `[start, end]` date range, filters the transactions, computes the totals and per-category breakdown, and returns a `ReportResult`. Only `PeriodReportStrategy` is in scope for the MVP — do **not** scaffold `IsoWeekReportStrategy` or `MonthReportStrategy` yet. **Reports are ad-hoc** — every response is computed fresh from current entity state on every request and is never persisted, cached, or otherwise stored.
+A `ReportStrategyFactory` resolves the `ReportType` enum value to an `IReportStrategy`. Each strategy reads its strongly-typed `data` payload (`PeriodReportData`, `IsoWeekReportData`, …), validates, resolves the payload to a `[start, end]` date range, filters the transactions, computes the totals and per-category breakdown, and returns a `ReportResult`. `PeriodReportStrategy` and `IsoWeekReportStrategy` are both shipped and DI-registered; `MonthReportStrategy` is not yet scaffolded — don't add it without checking with the user. **Reports are ad-hoc** — every response is computed fresh from current entity state on every request and is never persisted, cached, or otherwise stored.
 
 **`ReportResult` is an aggregated summary, not a transaction list.** It carries `type`, `period` (string descriptor), `incomeTotal`, `expenseTotal`, `netTotal`, and `categoryBreakdown` — and that's all. The contributing transactions are not in the response; a consumer that needs them queries `/api/transactions` with a date filter separately.
 
