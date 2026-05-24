@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, development]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: src/backend/FinanceTracker
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore NuGet cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: dotnet-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            dotnet-${{ runner.os }}-
+
+      - name: Restore solution
+        run: dotnet restore FinanceTracker.slnx
+
+      - name: Build (Release)
+        run: dotnet build FinanceTracker.slnx --no-restore --configuration Release --verbosity minimal
+
+      - name: Test (Release)
+        run: dotnet test FinanceTracker.slnx --no-build --configuration Release --verbosity minimal

@@ -3447,3 +3447,119 @@ Open follow-ups / not yet done:
     follow-up the user can do as part of the same commit that
     accepts this scaffold.
   - No other follow-ups. No skipped [Fact]s, no TODO markers.
+
+
+=========================================================================
+Timestamp: 2026-05-24
+Model / tool: Claude Code (Opus 4.7, 1M context) via /speckit-specify ->
+              /speckit-plan -> /speckit-tasks -> /speckit-implement
+-------------------------------------------------------------------------
+Prompt:
+  /speckit-specify with arguments:
+  "Need to create a simple github pipeline for merge requests. It
+   should run build+release, unit tests, integration tests. Linux is
+   preferable"
+
+  Then /speckit-plan, /speckit-tasks, /speckit-implement (no additional
+   user arguments at any of the three follow-up stages).
+
+AI suggestion:
+  Full speckit cycle for feature 005-ci-pipeline:
+   1. Created branch 005-ci-pipeline via the before_specify git hook
+      (speckit.git.feature). Persisted .specify/feature.json ->
+      { "feature_directory": "specs/005-ci-pipeline" }.
+   2. Wrote specs/005-ci-pipeline/spec.md: three P1 user stories (build
+      on Linux, unit tests, integration tests) bundled into one
+      pull-request gate, 12 functional requirements, 6 measurable
+      success criteria, 10-item Assumptions section. No
+      [NEEDS CLARIFICATION] markers; reasonable defaults (ubuntu-latest,
+      no coverage, no publish, no `global.json`, no `workflow_dispatch`)
+      documented inline. Self-validation against
+      checklists/requirements.md: 16/16 pass.
+   3. Wrote specs/005-ci-pipeline/plan.md: locked 13 decisions
+      (D1-D13) covering runner, SDK install, trigger filter,
+      concurrency, test-execution strategy, NuGet cache, build
+      configuration, restore/build/test command separation (R-001),
+      `.slnx` handling, permissions, action pinning, log verbosity,
+      and `workflow_dispatch` omission. Constitution Check (v3.0.0):
+      PASS, no Complexity Tracking entries.
+   4. Wrote Phase-1 artifacts: research.md (D1-D13 with rationale +
+      alternatives rejected), data-model.md (Workflow Run / Workflow
+      Step / Check Run entities owned by GitHub Actions, documented
+      for traceability), contracts/workflow-contract.md (C1-C9
+      prescriptive shape including a "what the workflow MUST NOT
+      contain" negative-space audit list), quickstart.md (V1-V6
+      manual verification walkthrough). No CLAUDE.md SPECKIT-block
+      update (no markers exist in this project's CLAUDE.md).
+   5. Wrote tasks.md: 24 tasks across 6 phases. T001-T010
+      (Setup + Foundational), T011-T013 (US1), T014-T016 (US2),
+      T017-T018 (US3), T019-T024 (Polish). [P] only on three
+      independent Polish-phase quickstart verifications. Explicit
+      note: live-PR verification tasks (T013, T015-T021, T024)
+      cannot be executed autonomously by /speckit-implement and
+      must be performed by a human during PR review.
+   6. /speckit-implement executed the file-write tasks (T004-T012,
+      T014) in a single editor pass per the recommended single-shot
+      delivery strategy, plus the housekeeping tasks (T022 = this
+      entry, T023 = C7 negative-space audit).
+
+  Files written / edited:
+   - specs/005-ci-pipeline/spec.md                                (new)
+   - specs/005-ci-pipeline/plan.md                                (new)
+   - specs/005-ci-pipeline/research.md                            (new)
+   - specs/005-ci-pipeline/data-model.md                          (new)
+   - specs/005-ci-pipeline/contracts/workflow-contract.md         (new)
+   - specs/005-ci-pipeline/quickstart.md                          (new)
+   - specs/005-ci-pipeline/tasks.md                               (new)
+   - specs/005-ci-pipeline/checklists/requirements.md             (new)
+   - .github/workflows/ci.yml                                     (new — the deliverable)
+   - .specify/feature.json                                        (pointer updated)
+   - ai-artifacts/agent_log.txt                                   (this entry appended)
+
+  The deliverable `.github/workflows/ci.yml` is 47 lines and contains
+  exactly the six steps the contract names, in order:
+   1. Checkout (actions/checkout@v4)
+   2. Setup .NET 10 (actions/setup-dotnet@v4, dotnet-version: '10.0.x')
+   3. Restore NuGet cache (actions/cache@v4 on ~/.nuget/packages keyed
+      by hashFiles('**/*.csproj'))
+   4. Restore solution (dotnet restore FinanceTracker.slnx)
+   5. Build (Release) (dotnet build ... --no-restore --configuration
+      Release --verbosity minimal)
+   6. Test (Release) (dotnet test ... --no-build --configuration
+      Release --verbosity minimal — one invocation covers all four
+      test projects)
+
+  Workflow-level metadata: name "CI", permissions { contents: read }
+  only, concurrency group keyed per ref with cancel-in-progress: true,
+  pull_request trigger filtered to [main, development].
+
+  T023 audit confirmed every "MUST NOT" clause in contract C7 holds:
+  no push trigger, no matrix, no secrets.*, no third-party marketplace
+  action, no upload-artifact, no publish/format/lint steps, no
+  if: always(), no continue-on-error, no widened permissions, no
+  services: block, no workflow/job env: block, no global.json added.
+
+Decision: accepted
+
+Reason:
+  Specification, plan, contract, and tasks are mutually consistent;
+  constitution-check passes; the YAML is shorter than ~50 lines and
+  honours both the user's stated requirements (build+release on
+  Linux, unit + integration tests) and the constitution's CI clause
+  (restore -> build --no-restore -> test --no-build).
+
+  No build/test was run by /speckit-implement because the deliverable
+  IS the build/test workflow — the only meaningful validation is
+  running it against a real PR. The local `dotnet` toolchain is not
+  what this feature ships.
+
+Open follow-ups / not yet done:
+  - Verification tasks T013, T015, T016, T017, T018, T019, T020,
+    T021 require a live PR with deliberately broken commits to be
+    pushed (per quickstart.md V1-V5). Defer to PR review.
+  - T024 (PR description callout about branch-protection wiring)
+    happens when the implementing PR is opened.
+  - Branch-protection rule that marks the `CI` check as Required
+    for `main` and `development` is a maintainer-applied repo
+    setting; see quickstart.md V6. Acknowledged in T024 and the
+    spec's Assumptions section.
