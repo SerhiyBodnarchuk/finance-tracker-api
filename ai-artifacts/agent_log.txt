@@ -4233,3 +4233,45 @@ Open follow-ups / not yet done:
     maintainer (per quickstart.md V6).
   - No further iteration expected on this feature absent a live-
     CI surprise.
+
+=========================================================================
+Timestamp: 2026-05-28
+Model / tool: Claude Code (claude-sonnet-4-6) via /speckit-implement
+Feature: 006-transaction-export (GET /api/transactions/export)
+-------------------------------------------------------------------------
+Prompt:
+  /speckit-specify → /speckit-plan → /speckit-tasks → /speckit-implement
+  "Need to implement api endpoints to export transactions in json/csv
+   based on content-negotiation header"
+
+AI suggestion:
+  1. TransactionCsvFormatter (static class, Finance.Business/Export/)
+     - RFC 4180 quoting, invariant-culture decimal, ISO 8601 timestamp,
+       semicolon-delimited CategoryIds cell.
+  2. TransactionsController.Export ([HttpGet("export")] on existing
+     controller) — manual Accept header parsing via
+     MediaTypeHeaderValue.TryParseList, quality-sorted, falls back to
+     JSON when Accept absent or */*; returns 406 for unmatched types.
+  3. 7 unit tests in Finance.Business.UnitTests/Export/
+     TransactionCsvFormatterTests.cs.
+  4. 13 integration tests in Finance.Api.IntegrationTests/
+     TransactionsExportTests.cs (JSON, CSV, */* default, no-header
+     default, quality-weighted negotiation, 406).
+
+Decision: ACCEPTED in full.
+
+Rationale:
+  - Static formatter in Finance.Business maintains the constitution's
+    test-coverage split (Principle IV explicitly calls out
+    "Finance.Business.UnitTests (format generation)").
+  - Manual Accept inspection using the framework's typed-header parser
+    was chosen over a custom IOutputFormatter to avoid disproportionate
+    complexity for two media types in a single-user pet project.
+  - No new DI registrations, no new NuGet packages, no new projects.
+  - All 137 tests pass (22 Data, 58 Business, 27 Api.Unit, 30
+    Api.Integration). Previous total: 117. Delta: +20.
+  - One deviation from tasks.md: TransactionsExportTests.cs was placed
+    directly in Finance.Api.IntegrationTests/ root (not in a Controllers/
+    subdirectory) to match the flat layout of the existing integration
+    test files in that project.
+=========================================================================

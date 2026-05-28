@@ -1,8 +1,10 @@
 using Finance.Api.Infrastructure;
 using Finance.Api.Infrastructure.Validators;
 using Finance.Business.Dtos.Transactions;
+using Finance.Business.Export;
 using Finance.Business.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Net.Http.Headers;
 
 namespace Finance.Api.Controllers;
 
@@ -41,6 +43,42 @@ public sealed class TransactionsController(
 
         var stored = transactions.Create(request);
         return CreatedAtAction(nameof(GetById), new { id = stored.Id }, stored);
+    }
+
+    [HttpGet("export")]
+    public IActionResult Export()
+    {
+        MediaTypeHeaderValue.TryParseList(Request.Headers.Accept, out var accepts);
+        var sorted = (accepts ?? [])
+            .OrderByDescending(m => m.Quality ?? 1.0)
+            .ToList();
+
+        if (!sorted.Any())
+            return ServeJson();
+
+        foreach (var media in sorted)
+        {
+            var type = media.MediaType.Value;
+            if (type is "application/json" or "*/*")
+                return ServeJson();
+            if (type == "text/csv")
+                return ServeCsv();
+        }
+
+        return StatusCode(StatusCodes.Status406NotAcceptable);
+
+        IActionResult ServeJson()
+        {
+            Response.Headers.Append("Content-Disposition", "attachment; filename=transactions.json");
+            return Ok(transactions.GetAll());
+        }
+
+        IActionResult ServeCsv()
+        {
+            var csv = TransactionCsvFormatter.Format(transactions.GetAll());
+            Response.Headers.Append("Content-Disposition", "attachment; filename=transactions.csv");
+            return Content(csv, "text/csv; charset=utf-8");
+        }
     }
 
     [HttpDelete("{id:int}")]
