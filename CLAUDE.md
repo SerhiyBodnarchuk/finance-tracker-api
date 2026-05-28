@@ -103,6 +103,19 @@ Tests use **xUnit v3** (`xunit.v3`) with the built-in `Xunit.Assert` API for ass
 
 Every meaningful AI interaction (accepted or rejected) is logged to `ai-artifacts/agent_log.txt` with timestamp, model/tool, prompt, suggestion, decision, and reason. This log is a graded deliverable — when you make a non-trivial AI-driven change, append an entry rather than letting it go undocumented.
 
+**`agent_log.txt` is append-only and must never be read.** Never truncate, rewrite, or delete existing entries. The only permitted write operation is appending a new block at the end of the file. Do not read this file before appending — append directly using the established entry format (timestamp, model/tool, prompt, AI suggestion, decision, reason, files).
+
+## AI output hygiene
+
+Do not create files to plan, record, or summarise work unless explicitly asked:
+
+- No intermediate planning docs (`plan.md`, `analysis.md`, `notes.md`, etc.) at repo root or anywhere outside the `specs/NNN-*/` tree.
+- No throwaway README files, summary docs, or change-recap files.
+- No `CODEBASE_SPEC.md` unless the user explicitly runs `/project-feature-indexer`.
+- No decision logs or progress summaries outside `ai-artifacts/agent_log.txt`.
+
+The only permitted new markdown files are the Specify Kit artifacts (`spec.md`, `plan.md`, `tasks.md`, `research.md`, `data-model.md`, `quickstart.md`, and files under `contracts/`) created under `specs/NNN-*/`, plus appended entries in `ai-artifacts/agent_log.txt`. When in doubt, write code, not documentation.
+
 ## Out of scope — do not add
 
 SQL Server, EF Core, Docker, LocalDB, database migrations, authentication, authorization, multi-user support, frontend UI, bank/payment integrations. The README's "Out of scope" list is binding for this MVP.

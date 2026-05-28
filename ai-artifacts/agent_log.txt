@@ -4275,3 +4275,13 @@ Rationale:
     subdirectory) to match the flat layout of the existing integration
     test files in that project.
 =========================================================================
+
+---
+
+Timestamp: 2026-05-28T00:00:00
+Model / tool: Claude Code (skill: artifact-guard)
+Prompt: /artifact-guard
+AI suggestion: Found 8 offending file(s): ai-artifacts\context_schema.md, CODEBASE_SPEC.md, specs\001-domain-entities-dtos\checklists\requirements.md, specs\002-in-memory-repositories\checklists\requirements.md, specs\003-transactions-categories-reports\checklists\requirements.md, specs\004-report-strategy-scaffold\checklists\requirements.md, specs\005-ci-pipeline\checklists\requirements.md, specs\006-transaction-export\checklists\requirements.md
+Decision: aborted (user declined deletion)
+Reason: Files do not match the artifact-guard allow-list. ai-artifacts\context_schema.md is not under ai-artifacts/Specifications/; CODEBASE_SPEC.md is explicitly forbidden unless /project-feature-indexer is invoked; specs/*/checklists/requirements.md files sit in a checklists/ subdirectory rather than the permitted specs/*/checklist.md path.
+Files: 0

@@ -1,6 +1,26 @@
 <!--
 Sync Impact Report
 ==================
+Version change: 3.0.1 -> 3.0.2
+Bump rationale: PATCH. Principle V gains an explicit append-only rule for
+agent_log.txt — entries MUST NOT be deleted, truncated, or rewritten. No
+principle is added, removed, or redefined; the rule was always implied by
+"appended", and this patch makes it normative text.
+
+Modified principles:
+- V. AI-Assisted Development Transparency — append-only constraint added
+  to the agent_log.txt obligation.
+
+Templates / runtime docs touched:
+- CLAUDE.md — AI-assisted development log section gains append-only note;
+  new "AI output hygiene" section added prohibiting planning/analysis docs
+  outside the permitted paths.
+- README.md — AI-Assisted Development Log section gains append-only note.
+
+
+Deferred items: same set as 3.0.1.
+
+----------------------------------------------------------------------
 Version change: 3.0.0 -> 3.0.1
 Bump rationale: PATCH. Test-project wiring in Principle IV is refined to
 match the running implementation after feature 005-ci-pipeline shipped a
@@ -557,6 +577,11 @@ prompt, AI suggestion, decision (accepted / rejected), and reason. "Meaningful"
 means anything that produced or rejected non-trivial code or design changes;
 trivial completions (single-token autocompletes, formatting) are exempt.
 
+**`agent_log.txt` is append-only and MUST NOT be read.** Entries MUST NOT be
+deleted, truncated, or rewritten. The only permitted write operation is appending
+a new block at the end of the file. Any tool or skill that updates this log MUST
+use an append-only write, never a read or overwrite.
+
 Additional obligations:
 
 - Transaction descriptions may contain sensitive text. The MCP context layer
@@ -686,4 +711,4 @@ lives in `CLAUDE.md`. Where `CLAUDE.md` adds operational detail beyond this
 constitution, that detail is authoritative for behaviour; where the two
 disagree on a principle, this constitution governs.
 
-**Version**: 3.0.1 | **Ratified**: 2026-05-18 | **Last Amended**: 2026-05-24
+**Version**: 3.0.2 | **Ratified**: 2026-05-18 | **Last Amended**: 2026-05-28

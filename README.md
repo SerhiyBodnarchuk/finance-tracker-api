@@ -513,6 +513,8 @@ Each entry includes:
 
 The goal is not to accept all AI suggestions, but to evaluate them critically and document the reasoning.
 
+`agent_log.txt` is **append-only and must never be read** — entries are never deleted, truncated, or rewritten. Append directly using the established entry format; do not read the file before appending.
+
 ## Suggested AI Skill
 
 The reusable skill for this project should be:
