@@ -1,5 +1,7 @@
 # finance-tracker-api
 
+[![CI](https://github.com/SerhiyBodnarchuk/finance-tracker-api/actions/workflows/ci.yml/badge.svg)](https://github.com/SerhiyBodnarchuk/finance-tracker-api/actions/workflows/ci.yml)
+
 Single-user .NET personal finance API with seeded in-memory storage, period-based reports, CI tests, and MCP-style context replay for AI-assisted development.
 
 ## Overview
@@ -574,8 +576,7 @@ Milestones:
 2. ✅ Add in-memory repositories with seeded transactions and categories in the Data layer.
 3. ✅ Add transaction and category endpoints in the API layer.
 4. ✅ Add report factory and initial period report strategy in the Business layer.
-5. ⬜ Add JSON and CSV export endpoint using content negotiation.
+5. ✅ Add JSON and CSV export endpoint using content negotiation.
 6. ✅ Add unit and integration tests (xUnit v3 + Moq for unit isolation; `Microsoft.AspNetCore.Mvc.Testing` for end-to-end HTTP coverage).
 7. ✅ Add GitHub Actions CI.
 8. ⬜ Add MCP-style context snapshot and replay flow.
-9. ⬜ Complete assignment artifacts and demo recording.

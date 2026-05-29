@@ -91,11 +91,11 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 3. Load and analyze the implementation context:
    - **REQUIRED**: Read tasks.md for the complete task list and execution plan
-   - **REQUIRED**: Read plan.md for tech stack, architecture, and file structure
+   - **REQUIRED**: Read plan.md for tech stack, architecture, file structure, and inline research decisions (the `## Research & Decisions` section, if present)
    - **IF EXISTS**: Read data-model.md for entities and relationships
    - **IF EXISTS**: Read contracts/ for API specifications and test requirements
-   - **IF EXISTS**: Read research.md for technical decisions and constraints
-   - **IF EXISTS**: Read .specify/memory/constitution.md for governance constraints
+   - **IF EXISTS**: Read research.md for technical decisions and constraints (only present for complex features — decisions for simple features are inline in plan.md)
+   - **IF EXISTS**: Read .specify/memory/constitution.md for governance constraints (active rules only — do NOT read constitution-history.md)
    - **IF EXISTS**: Read quickstart.md for integration scenarios
 
 4. **Project Setup Verification**:
