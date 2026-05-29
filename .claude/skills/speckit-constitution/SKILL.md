@@ -63,6 +63,7 @@ You are updating the project constitution at `.specify/memory/constitution.md`. 
 Follow this execution flow:
 
 1. Load the existing constitution at `.specify/memory/constitution.md`.
+   - This file contains **only active rules** — the first line is a one-line HTML comment pointing to `.specify/memory/constitution-history.md`. Do NOT read `constitution-history.md`; it is the append-only amendment log and is never an input to this skill.
    - Identify every placeholder token of the form `[ALL_CAPS_IDENTIFIER]`.
    **IMPORTANT**: The user might require less or more principles than the ones used in the template. If a number is specified, respect that - follow the general template. You will update the doc accordingly.
 
@@ -89,13 +90,27 @@ Follow this execution flow:
    - Read each command file in `.specify/templates/commands/*.md` (including this one) to verify no outdated references (agent-specific names like CLAUDE only) remain when generic guidance is required.
    - Read any runtime guidance docs (e.g., `README.md`, `docs/quickstart.md`, or agent-specific guidance files if present). Update references to principles changed.
 
-5. Produce a Sync Impact Report (prepend as an HTML comment at top of the constitution file after update):
-   - Version change: old → new
-   - List of modified principles (old title → new title if renamed)
-   - Added sections
-   - Removed sections
-   - Templates requiring updates (✅ updated / ⚠ pending) with file paths
-   - Follow-up TODOs if any placeholders intentionally deferred.
+5. Produce a Sync Impact Report and **append** it to `.specify/memory/constitution-history.md` (append-only — do NOT read the file first, do NOT overwrite it). Use this format for the appended entry:
+
+   ```
+   ----------------------------------------------------------------------
+   Version change: X.Y.Z -> A.B.C
+   Bump rationale: [MAJOR/MINOR/PATCH]. [Explanation]
+
+   Modified principles:
+   - [Principle name] — [summary of change]
+
+   Renamed principles: [list or "none"]
+   Added sections: [list or "none"]
+   Removed sections: [list or "none"]
+
+   Templates / runtime docs touched:
+   - [file path] — [what changed]
+
+   Deferred items: [list or "none"]
+   ```
+
+   The Sync Impact Report goes **only** to `constitution-history.md`. Do NOT embed it as a comment in `constitution.md`.
 
 6. Validation before final output:
    - No remaining unexplained bracket tokens.
@@ -103,7 +118,11 @@ Follow this execution flow:
    - Dates ISO format YYYY-MM-DD.
    - Principles are declarative, testable, and free of vague language ("should" → replace with MUST/SHOULD rationale where appropriate).
 
-7. Write the completed constitution back to `.specify/memory/constitution.md` (overwrite).
+7. Write the completed constitution back to `.specify/memory/constitution.md` (overwrite). The file MUST begin with the single-line pointer comment and nothing else before the `# [PROJECT] Constitution` heading:
+   ```
+   <!-- Amendment history: .specify/memory/constitution-history.md (append-only; never read during normal work) -->
+   ```
+   Do NOT embed the Sync Impact Report here — it was appended to `constitution-history.md` in step 5.
 
 8. Output a final summary to the user with:
    - New version and bump rationale.
