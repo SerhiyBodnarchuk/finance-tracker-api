@@ -12,6 +12,10 @@ public sealed class CategoriesController(
     ICategoryService categories,
     ICategoryValidator validator) : ControllerBase
 {
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <returns></returns>
     [HttpGet]
     public ActionResult<IReadOnlyList<CategoryResponse>> List() =>
         Ok(categories.GetAll());
