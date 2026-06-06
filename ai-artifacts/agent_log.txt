@@ -4285,3 +4285,75 @@ AI suggestion: Found 8 offending file(s): ai-artifacts\context_schema.md, CODEBA
 Decision: aborted (user declined deletion)
 Reason: Files do not match the artifact-guard allow-list. ai-artifacts\context_schema.md is not under ai-artifacts/Specifications/; CODEBASE_SPEC.md is explicitly forbidden unless /project-feature-indexer is invoked; specs/*/checklists/requirements.md files sit in a checklists/ subdirectory rather than the permitted specs/*/checklist.md path.
 Files: 0
+
+---
+[2026-06-06 18:30:00] | Model: claude-sonnet-4-6
+Prompt:     User reported that agent_log.txt logging instruction in CLAUDE.md was being ignored, and asked whether to create an agents.md or a skill. User chose to implement both a Stop hook and a /log-interaction skill.
+Suggestion: Created a Stop hook (auto-log.ps1) that appends a stub entry when git detects uncommitted changes, added it to settings.json, created a /log-interaction skill for rich entries, and updated CLAUDE.md to make the dual-logging requirement explicit.
+Decision:   accepted
+Reason:     Hooks run at harness level (reliable), skill captures rich context (complete) — both complement each other.
+Files:      .claude/hooks/auto-log.ps1, .claude/settings.json, .claude/skills/log-interaction/SKILL.md, CLAUDE.md
+---
+
+---
+[2026-06-06 18:45:00] | Model: claude-sonnet-4-6
+Prompt:     The Stop hook errored due to a PowerShell parse failure on the em dash character in the inline string.
+Suggestion: Rewrote auto-log.ps1 using a here-string (@"..."@) to avoid token-parsing of special Unicode characters; verified the script exits cleanly.
+Decision:   accepted
+Reason:     Here-strings do not parse their content as expression tokens, making them safe for arbitrary text.
+Files:      .claude/hooks/auto-log.ps1
+---
+
+---
+[2026-06-06 18:30:00] | Model: claude-sonnet-4-6
+Prompt:     User asked to add the GitHub MCP server so Claude can commit, push, and create PRs directly.
+Suggestion: Added a "github" entry to .mcp.json using npx @modelcontextprotocol/server-github with an "inputs" promptString so Claude Code prompts for the GitHub PAT on first start (masked, cached) rather than hardcoding it.
+Decision:   modified
+Reason:     User initially wanted a login-page flow; clarified that stdio MCP servers need a PAT; user then chose the interactive-input approach over env vars.
+Files:      .mcp.json
+---
+
+---
+[2026-06-06 18:45:00] | Model: claude-sonnet-4-6
+Prompt:     User asked to remove the auto-log Stop hook (which was spamming stub entries) and make /log-interaction call automatically without manual prompting.
+Suggestion: Removed the Stop hook from .claude/settings.json and updated CLAUDE.md to replace the two-way enforcement section with a single mandatory instruction for Claude to call /log-interaction automatically at end of every turn where files changed.
+Decision:   accepted
+Reason:     Hook was spamming stubs; user wanted automatic logging without manual /log-interaction calls.
+Files:      .claude/settings.json, CLAUDE.md
+---
+
+---
+[2026-06-06 14:30:00] | Model: claude-opus-4-7
+Prompt:     User asked to list available GitHub repos via the MCP server.
+Suggestion: Loaded the github MCP tool schemas, called get_me to identify the authenticated user, then searched repositories for user:SerhiyBodnarchuk and reported the single repo (finance-tracker-api).
+Decision:   accepted
+Reason:     n/a
+Files:      none
+---
+
+---
+[2026-06-06 14:30:00] | Model: claude-sonnet-4-6
+Prompt:     User asked for a safe approach to store the GitHub PAT token for the GitHub MCP server, avoiding hardcoding or inconvenient environment variables, preferring local settings.
+Suggestion: Updated .mcp.json to use ${GITHUB_PAT} placeholder in the Authorization header, and added an env block to .claude/settings.local.json (already gitignored) so the real token is stored locally and substituted at Claude Code startup.
+Decision:   accepted
+Reason:     Token should never be committed to git; settings.local.json is already gitignored making it the safest local-only storage option.
+Files:      .mcp.json, .claude/settings.local.json
+---
+
+---
+[2026-06-06 17:28:00] | Model: claude-sonnet-4-6
+Prompt:     User asked to create a Claude Code skill that stages changes, commits, pushes the branch to GitHub, and opens a PR targeting the development branch.
+Suggestion: Created .claude/skills/git-ship/SKILL.md with a 10-step workflow covering safety checks, staging, commit message generation (Conventional Commits), push, and PR creation via gh CLI or GitHub MCP fallback.
+Decision:   accepted
+Reason:     n/a
+Files:      .claude/skills/git-ship/SKILL.md
+---
+
+---
+[2026-06-06 17:32:00] | Model: claude-sonnet-4-6
+Prompt:     User asked to remove the "Inspect the diff" section from git-ship skill and replace auto-generated commit messages with a branch-name-based format like "Changes for 007-mcp-server".
+Suggestion: Removed Step 3 (diff inspection + git log), simplified commit message generation to use branch name, and updated the PR body reference accordingly.
+Decision:   accepted
+Reason:     Diff inspection wastes tokens when a simple branch-name message suffices.
+Files:      .claude/skills/git-ship/SKILL.md
+---

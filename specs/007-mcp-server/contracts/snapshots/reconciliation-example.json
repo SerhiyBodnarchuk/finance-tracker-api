@@ -1,0 +1,34 @@
+{
+  "id": "ctx-001",
+  "version": 1,
+  "ttl": "2026-06-02T15:00:00Z",
+  "categoryMappings": [
+    { "id": 1, "name": "Groceries",   "type": "Expense" },
+    { "id": 2, "name": "Salary",      "type": "Income"  },
+    { "id": 3, "name": "Transport",   "type": "Expense" },
+    { "id": 4, "name": "Freelance",   "type": "Both"    }
+  ],
+  "pendingTransactions": [
+    {
+      "id": 42,
+      "amount": 47.50,
+      "transactionType": "Expense",
+      "date": "2026-05-28T09:15:00",
+      "description": "[REDACTED]"
+    },
+    {
+      "id": 43,
+      "amount": 120.00,
+      "transactionType": "Expense",
+      "date": "2026-05-29T14:30:00",
+      "description": "[REDACTED]"
+    }
+  ],
+  "reconciliation": {
+    "ambiguousTransactionIds": [42, 43],
+    "suggestedCategoryIds": {},
+    "decisionStatus": "Active"
+  },
+  "status": "Active",
+  "createdAt": "2026-06-02T14:30:00Z"
+}
