@@ -82,7 +82,7 @@ Use a PowerShell here-string:
 $msg = @'
 Changes for <branch-name>
 
-Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+Co-Authored-By: Claude <noreply@anthropic.com>
 '@
 git commit -m $msg
 ```
@@ -111,7 +111,6 @@ Compose the PR title and body:
 - [ ] All tests pass (`dotnet test`)
 - [ ] Manual smoke-test of changed endpoints
 
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
 ```
 
 Show the title and body to the user and ask for confirmation before creating the PR.
