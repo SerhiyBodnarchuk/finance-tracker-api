@@ -4,12 +4,13 @@
 
 ## Core Principles
 
-### I. Three-Layer Architecture Boundaries (NON-NEGOTIABLE)
+### I. Architecture Boundaries (NON-NEGOTIABLE)
 
-The solution is split into exactly three projects with a strict one-way dependency
-graph: `Finance.Api -> Finance.Business -> Finance.Data`. Reverse dependencies
-(`Finance.Data` referencing `Finance.Business` or `Finance.Api`, or
-`Finance.Business` referencing `Finance.Api`) MUST NOT be introduced.
+The solution uses a strict one-way dependency graph with no reverse references.
+The core three-layer spine is `Finance.Api -> Finance.Business -> Finance.Data`.
+`Finance.Mcp` is a permitted 4th production project that sits alongside
+`Finance.Api` as a protocol-adapter sibling: both reference `Finance.Business`,
+neither references the other. Reverse dependencies MUST NOT be introduced.
 
 Each layer owns a disjoint set of responsibilities:
 
@@ -32,9 +33,14 @@ Each layer owns a disjoint set of responsibilities:
   `IReportStrategy` implementation, plus `ReportValidationException`),
   the **validation result data shapes** under `Validation/` (`ValidationResult`,
   `ValidationError`) consumed by validators in the API layer and by
-  `ReportValidationException` in the Business layer, aggregation logic, and
-  (later) MCP abstractions. It MUST NOT reference ASP.NET Core types or HTTP
-  primitives.
+  `ReportValidationException` in the Business layer, and aggregation logic.
+  It MUST NOT reference ASP.NET Core types or HTTP primitives.
+- `Finance.Mcp` owns MCP protocol infrastructure: context schema types, the
+  `IMcpServer` / `McpServer` implementation (calls Business services for
+  validation), `IMcpClient` / `McpClient` facade, `McpContextStore`
+  (singleton), `ContextRedactor`, and `McpIterationLogger`. It references
+  `Finance.Business` for service interfaces only; it MUST NOT reference
+  `Finance.Data` directly or `Finance.Api`.
 - `Finance.Api` owns controllers / minimal-API endpoints, model binding
   (reusing the Business-layer DTOs directly), status-code mapping, OpenAPI +
   Scalar wiring, the **`Infrastructure/` folder** (the `ProblemDetailsMappers`
@@ -316,9 +322,10 @@ MUST go through the amendment process in Governance.
 **Required stack**:
 
 - Runtime / framework: **.NET 10** (`net10.0`) on ASP.NET Core Web API, C#.
-  All projects (`Finance.Api`, `Finance.Business`, `Finance.Data`, and the
-  four test projects under `src/backend/FinanceTracker/tests/`) MUST target
-  `net10.0`. Downgrading to net8/net9 is NOT permitted without an amendment.
+  All projects (`Finance.Api`, `Finance.Business`, `Finance.Data`, `Finance.Mcp`,
+  and the five test projects under `src/backend/FinanceTracker/tests/`) MUST
+  target `net10.0`. Downgrading to net8/net9 is NOT permitted without an
+  amendment.
 - API documentation: `Microsoft.AspNetCore.OpenApi` +
   `Scalar.AspNetCore`. Swashbuckle MUST NOT be reintroduced.
 - Testing: **xUnit v3** with the built-in `Xunit.Assert` API
@@ -346,11 +353,12 @@ MUST go through the amendment process in Governance.
 it without re-reading the README):
 
 - Solution file at `src/backend/FinanceTracker/FinanceTracker.slnx`.
-- Three production projects under `src/backend/FinanceTracker/`
-  (`Finance.Api`, `Finance.Business`, `Finance.Data`) plus four test projects
-  under `src/backend/FinanceTracker/tests/` (`Finance.Data.UnitTests`,
-  `Finance.Business.UnitTests`, `Finance.Api.UnitTests`,
-  `Finance.Api.IntegrationTests`).
+- Four production projects under `src/backend/FinanceTracker/`
+  (`Finance.Api`, `Finance.Business`, `Finance.Data`, `Finance.Mcp`) plus five
+  test projects under `src/backend/FinanceTracker/tests/`
+  (`Finance.Data.UnitTests`, `Finance.Business.UnitTests`,
+  `Finance.Api.UnitTests`, `Finance.Api.IntegrationTests`,
+  `Finance.Mcp.UnitTests`).
 - AI artifacts under `ai-artifacts/`; specifications under
   `ai-artifacts/Specifications/`.
 
@@ -421,4 +429,4 @@ lives in `CLAUDE.md`. Where `CLAUDE.md` adds operational detail beyond this
 constitution, that detail is authoritative for behaviour; where the two
 disagree on a principle, this constitution governs.
 
-**Version**: 3.0.2 | **Ratified**: 2026-05-18 | **Last Amended**: 2026-05-28
+**Version**: 3.1.0 | **Ratified**: 2026-05-18 | **Last Amended**: 2026-06-02

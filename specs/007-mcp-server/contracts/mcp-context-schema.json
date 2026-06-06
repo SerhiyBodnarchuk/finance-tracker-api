@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mcp-context-schema.json",
+  "title": "McpContext",
+  "description": "Serialised reconciliation context snapshot. All description fields are replaced with [REDACTED] before serialisation.",
+  "type": "object",
+  "required": ["id", "version", "ttl", "categoryMappings", "pendingTransactions", "reconciliation", "status", "createdAt"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique context identifier assigned by McpServer.SendContext."
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Schema version. Current value: 1."
+    },
+    "ttl": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Absolute UTC expiry instant."
+    },
+    "categoryMappings": {
+      "type": "array",
+      "description": "Snapshot of category definitions at context creation time.",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "type"],
+        "properties": {
+          "id":   { "type": "integer", "minimum": 1 },
+          "name": { "type": "string", "minLength": 1 },
+          "type": { "type": "string", "enum": ["Income", "Expense", "Both"] }
+        }
+      }
+    },
+    "pendingTransactions": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Transaction stubs requiring categorisation. description is always [REDACTED].",
+      "items": {
+        "type": "object",
+        "required": ["id", "amount", "transactionType", "date", "description"],
+        "properties": {
+          "id":              { "type": "integer", "minimum": 1 },
+          "amount":          { "type": "number", "exclusiveMinimum": 0 },
+          "transactionType": { "type": "string", "enum": ["Income", "Expense"] },
+          "date":            { "type": "string", "format": "date-time" },
+          "description":     { "type": "string", "const": "[REDACTED]" }
+        }
+      }
+    },
+    "reconciliation": {
+      "type": "object",
+      "required": ["ambiguousTransactionIds", "suggestedCategoryIds", "decisionStatus"],
+      "properties": {
+        "ambiguousTransactionIds": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "integer", "minimum": 1 }
+        },
+        "suggestedCategoryIds": {
+          "type": "object",
+          "description": "Keys are transaction IDs (as strings); values are arrays of proposed category IDs.",
+          "additionalProperties": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "decisionStatus": {
+          "type": "string",
+          "enum": ["Active", "PendingApproval", "Confirmed", "RolledBack", "Expired"]
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["Active", "PendingApproval", "Confirmed", "RolledBack", "Expired"]
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "additionalProperties": false
+}

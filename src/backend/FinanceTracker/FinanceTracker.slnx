@@ -4,8 +4,11 @@
     <Project Path="tests/Finance.Api.UnitTests/Finance.Api.UnitTests.csproj" Id="529a605b-82f6-44ad-99f4-2c976d2ba66d" />
     <Project Path="tests/Finance.Business.UnitTests/Finance.Business.UnitTests.csproj" Id="a588be1d-7b72-4b08-b6da-ff601599aefe" />
     <Project Path="tests/Finance.Data.UnitTests/Finance.Data.UnitTests.csproj" Id="dc0fc742-a3cd-4f64-bd45-bd89f1cd3dd1" />
+    <Project Path="tests/Finance.Mcp.UnitTests/Finance.Mcp.UnitTests.csproj" />
   </Folder>
   <Project Path="Finance.Api/Finance.Api.csproj" Id="226d4a65-355e-4930-846d-b6686e1e9e21" />
   <Project Path="Finance.Business/Finance.Business.csproj" />
   <Project Path="Finance.Data/Finance.Data.csproj" />
+  <Project Path="Finance.Mcp/Finance.Mcp.csproj" />
+  <Project Path="Finance.Mcp.Host/Finance.Mcp.Host.csproj" />
 </Solution>
