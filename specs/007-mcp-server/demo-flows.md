@@ -3,6 +3,8 @@
 Three end-to-end flows that demonstrate the key behaviours of the Finance MCP server.
 Run each inside a Claude Code session with the `finance-mcp` server registered and running.
 
+> **Authoring note:** Each flow must include a one-or-two sentence plain-language summary directly beneath the scenario line. The summary should explain what is being demonstrated and why, in terms a non-technical stakeholder can follow during a live demo — no jargon, no tool names, just what happens and what it proves.
+
 ---
 
 ## Flow 1 — Happy path: categorise a transaction
@@ -101,6 +103,36 @@ The context remains `Active` — the bad proposal is rejected and a corrected `r
 |---|---|
 | `Expense` | `Expense`, `Both` |
 | `Income` | `Income`, `Both` |
+
+---
+
+## Flow 4 — Happy path: bulk import with no ambiguous transactions
+
+**Scenario:** Three fully-categorised transactions are sent with an empty `ambiguousIds` list. No agent action is needed — the context can be confirmed immediately and all three transactions are written to the store as-is.
+
+### Steps
+
+```
+Using the Finance MCP tools:
+
+1. Send a context with three transactions:
+     id=101, amount=200.00, type=Income,  description="Consulting invoice", categoryIds=[1]
+     id=102, amount=30.00,  type=Expense, description="Bus pass",           categoryIds=[3]
+     id=103, amount=15.00,  type=Expense, description="Spotify",            categoryIds=[4]
+   ambiguousIds = [] (empty — all transactions are already categorised).
+2. Call confirm on the returned context ID — no requestAction or receiveResult needed.
+3. Read the finance://transactions resource and verify all three transactions appear.
+```
+
+### Expected outcome
+
+| Step | Key values |
+|---|---|
+| `sendContext` | Returns a context ID |
+| `confirm` | `requiresApproval: false`, `status: Confirmed` — no agent loop needed |
+| `finance://transactions` | Three new entries visible: Consulting invoice (Income, Salary), Bus pass (Expense, Transport), Spotify (Expense, Entertainment) |
+
+No agent loop is triggered when `ambiguousIds` is empty — the context moves straight to `Confirmed` on the first `confirm` call and all transactions are stored immediately.
 
 ---
 

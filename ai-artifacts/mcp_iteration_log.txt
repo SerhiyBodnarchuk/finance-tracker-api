@@ -142,3 +142,138 @@ AgentOutput: {"actionId":"baf7237a23224777be30738dfb8158b3","proposedChanges":[{
 AcceptedDiff: [{"transactionId":300,"targetField":"transactionType","proposedValue":"Income"}]
 DecisionReason: human approved
 --- MCP ENTRY END ---
+--- MCP ENTRY START ---
+Timestamp: 2026-06-10T17:14:59.0396168Z
+Prompt: Grocery spend
+ContextSnapshotHash: 3a8dc902fb14978fb8c56293ac535d45d820b8541b335a084edd44ad02ed847d
+ModelName: unknown
+AgentOutput: {"actionId":"1a10b2fb54e144f4b9fa61354b301568","proposedChanges":[{"transactionId":10,"targetField":"categoryId","proposedValue":"2"}],"explanation":"Grocery spend","receivedAt":"2026-06-10T17:14:52.7432415Z"}
+AcceptedDiff: [{"transactionId":10,"targetField":"categoryId","proposedValue":"2"}]
+DecisionReason: confirmed
+--- MCP ENTRY END ---
+--- MCP ENTRY START ---
+Timestamp: 2026-06-10T17:14:59.1101472Z
+Prompt: This looks like income, not an expense
+ContextSnapshotHash: dfa45ad1fef129191b3e6a05b6a221cd9b2a8eea4d40c406d8dbc783afca4f35
+ModelName: unknown
+AgentOutput: {"actionId":"0827f97aea3e4be5b2d4abce9ca38a57","proposedChanges":[{"transactionId":300,"targetField":"transactionType","proposedValue":"Income"}],"explanation":"This looks like income, not an expense","receivedAt":"2026-06-10T17:14:53.7532987Z"}
+AcceptedDiff: null
+DecisionReason: pending human approval
+--- MCP ENTRY END ---
+--- MCP ENTRY START ---
+Timestamp: 2026-06-10T17:15:36.8165405Z
+Prompt: This looks like income, not an expense
+ContextSnapshotHash: cc4790fa04bff8207c8e669cd8779ac2ce3778306796284abb090af298d83851
+ModelName: unknown
+AgentOutput: {"actionId":"0827f97aea3e4be5b2d4abce9ca38a57","proposedChanges":[{"transactionId":300,"targetField":"transactionType","proposedValue":"Income"}],"explanation":"This looks like income, not an expense","receivedAt":"2026-06-10T17:14:53.7532987Z"}
+AcceptedDiff: [{"transactionId":300,"targetField":"transactionType","proposedValue":"Income"}]
+DecisionReason: human approved
+--- MCP ENTRY END ---
+--- MCP ENTRY START ---
+Timestamp: 2026-06-10T17:23:47.1826194Z
+Prompt: Tesco is a grocery store
+ContextSnapshotHash: 3b91a9c526af634f4851e94d0db091f86adb75919a79b25ae4f68cf84e3a9669
+ModelName: unknown
+AgentOutput: {"actionId":"dd23077e6c59422ba457162d6b444a56","proposedChanges":[{"transactionId":20,"targetField":"categoryId","proposedValue":"2"}],"explanation":"Tesco is a grocery store","receivedAt":"2026-06-10T17:23:44.4819418Z"}
+AcceptedDiff: [{"transactionId":20,"targetField":"categoryId","proposedValue":"2"}]
+DecisionReason: confirmed
+--- MCP ENTRY END ---
+--- MCP ENTRY START ---
+Timestamp: 2026-06-10T17:29:21.1852127Z
+Prompt: Lidl is groceries, client invoice is salary income, cinema is entertainment
+ContextSnapshotHash: 9d3abc3dddf8ca5525439be0dab7e322b998cf2d32880aed1485fc27c204d17d
+ModelName: unknown
+AgentOutput: {"actionId":"94984aebcfcc410088b7dd3a0cb29510","proposedChanges":[{"transactionId":30,"targetField":"categoryId","proposedValue":"2"},{"transactionId":31,"targetField":"categoryId","proposedValue":"1"},{"transactionId":32,"targetField":"categoryId","proposedValue":"4"}],"explanation":"Lidl is groceries, client invoice is salary income, cinema is entertainment","receivedAt":"2026-06-10T17:29:18.6100493Z"}
+AcceptedDiff: [{"transactionId":30,"targetField":"categoryId","proposedValue":"2"},{"transactionId":31,"targetField":"categoryId","proposedValue":"1"},{"transactionId":32,"targetField":"categoryId","proposedValue":"4"}]
+DecisionReason: confirmed
+--- MCP ENTRY END ---
+--- MCP ENTRY START ---
+Timestamp: 2026-06-10T17:37:37.3216133Z
+Prompt: Tesco is a grocery store
+ContextSnapshotHash: d39fdd57554cb710018500d50a129ba1272cae65b4d0be9c7246fb681b16e86c
+ModelName: unknown
+AgentOutput: {"actionId":"7047a3816fbf4e56afc2c1e526703e1a","proposedChanges":[{"transactionId":40,"targetField":"categoryId","proposedValue":"2"}],"explanation":"Tesco is a grocery store","receivedAt":"2026-06-10T17:37:35.0507964Z"}
+AcceptedDiff: [{"transactionId":40,"targetField":"categoryId","proposedValue":"2"}]
+DecisionReason: confirmed
+--- MCP ENTRY END ---
+--- MCP ENTRY START ---
+Timestamp: 2026-06-10T17:39:27.2257416Z
+Prompt: Grocery spend
+ContextSnapshotHash: 8382055f6b845599efe334016debfc3de0aad11636cf15b2a4a98ffdaa035f70
+ModelName: unknown
+AgentOutput: {"actionId":"5314f4d0544f44c48a49a313a712cb4f","proposedChanges":[{"transactionId":10,"targetField":"categoryId","proposedValue":"2"}],"explanation":"Grocery spend","receivedAt":"2026-06-10T17:39:24.4215914Z"}
+AcceptedDiff: [{"transactionId":10,"targetField":"categoryId","proposedValue":"2"}]
+DecisionReason: confirmed
+--- MCP ENTRY END ---
+--- MCP ENTRY START ---
+Timestamp: 2026-06-10T17:39:47.1358538Z
+Prompt: This looks like income, not an expense
+ContextSnapshotHash: 9ac5a99feb4e0a1af2c953e16f1cdb44a338bbcf3a76bc17268c440375a3d078
+ModelName: unknown
+AgentOutput: {"actionId":"377cbac191ca4939a1f79e7162b7afbd","proposedChanges":[{"transactionId":300,"targetField":"transactionType","proposedValue":"Income"}],"explanation":"This looks like income, not an expense","receivedAt":"2026-06-10T17:39:44.1693864Z"}
+AcceptedDiff: null
+DecisionReason: pending human approval
+--- MCP ENTRY END ---
+--- MCP ENTRY START ---
+Timestamp: 2026-06-10T17:39:59.2992873Z
+Prompt: This looks like income, not an expense
+ContextSnapshotHash: e24067a257bc61677a008d5e65a901c689f79f450db3b331265f30cc51e4354b
+ModelName: unknown
+AgentOutput: {"actionId":"377cbac191ca4939a1f79e7162b7afbd","proposedChanges":[{"transactionId":300,"targetField":"transactionType","proposedValue":"Income"}],"explanation":"This looks like income, not an expense","receivedAt":"2026-06-10T17:39:44.1693864Z"}
+AcceptedDiff: [{"transactionId":300,"targetField":"transactionType","proposedValue":"Income"}]
+DecisionReason: human approved
+--- MCP ENTRY END ---
+--- MCP ENTRY START ---
+Timestamp: 2026-06-10T17:47:04.7642092Z
+Prompt: 
+ContextSnapshotHash: 77db8a0b760e88a25297b29d88ac1021fec829fb88aa16e6063c3760d91951ec
+ModelName: unknown
+AgentOutput: 
+AcceptedDiff: null
+DecisionReason: confirmed
+--- MCP ENTRY END ---
+--- MCP ENTRY START ---
+Timestamp: 2026-06-10T17:52:01.4449524Z
+Prompt: Grocery spend
+ContextSnapshotHash: 02d86175a7e7c76592dc9e7a61cb02c7438ccf829af812cb4a2fa24d61ac11c8
+ModelName: unknown
+AgentOutput: {"actionId":"be927d896ea24954bc3fe02ec8a25087","proposedChanges":[{"transactionId":10,"targetField":"categoryIds","proposedValue":"2"}],"explanation":"Grocery spend","receivedAt":"2026-06-10T17:51:58.217361Z"}
+AcceptedDiff: [{"transactionId":10,"targetField":"categoryIds","proposedValue":"2"}]
+DecisionReason: confirmed
+--- MCP ENTRY END ---
+--- MCP ENTRY START ---
+Timestamp: 2026-06-10T17:58:06.1420370Z
+Prompt: Grocery spend
+ContextSnapshotHash: 87f553d1cc54812db13ebbc3732222a2c47243169ecd73874495a76cdb55ff14
+ModelName: unknown
+AgentOutput: {"actionId":"84d944c44ae3420482780a764be6d8d2","proposedChanges":[{"transactionId":10,"targetField":"categoryId","proposedValue":"2"}],"explanation":"Grocery spend","receivedAt":"2026-06-10T17:58:03.4849375Z"}
+AcceptedDiff: [{"transactionId":10,"targetField":"categoryId","proposedValue":"2"}]
+DecisionReason: confirmed
+--- MCP ENTRY END ---
+--- MCP ENTRY START ---
+Timestamp: 2026-06-10T17:59:09.9515935Z
+Prompt: This looks like income, not an expense
+ContextSnapshotHash: 3160371fadf3b7f6a65a6de36f9590c2865b10f76d76959a29ac354c9b90720a
+ModelName: unknown
+AgentOutput: {"actionId":"544c421686254d28b83a9e024d406661","proposedChanges":[{"transactionId":300,"targetField":"transactionType","proposedValue":"Income"}],"explanation":"This looks like income, not an expense","receivedAt":"2026-06-10T17:59:07.3460154Z"}
+AcceptedDiff: null
+DecisionReason: pending human approval
+--- MCP ENTRY END ---
+--- MCP ENTRY START ---
+Timestamp: 2026-06-10T17:59:25.9419729Z
+Prompt: This looks like income, not an expense
+ContextSnapshotHash: 5ab438a430e960bf34f9d48dde20c67ad2eaa7b02d2612b4b987a66d2205c47c
+ModelName: unknown
+AgentOutput: {"actionId":"544c421686254d28b83a9e024d406661","proposedChanges":[{"transactionId":300,"targetField":"transactionType","proposedValue":"Income"}],"explanation":"This looks like income, not an expense","receivedAt":"2026-06-10T17:59:07.3460154Z"}
+AcceptedDiff: [{"transactionId":300,"targetField":"transactionType","proposedValue":"Income"}]
+DecisionReason: human approved
+--- MCP ENTRY END ---
+--- MCP ENTRY START ---
+Timestamp: 2026-06-10T18:02:39.5885040Z
+Prompt: 
+ContextSnapshotHash: 04a914164d1609440540b429dfddb35092fd7db46a885d28552f4c0dbcab72f2
+ModelName: unknown
+AgentOutput: 
+AcceptedDiff: null
+DecisionReason: confirmed
+--- MCP ENTRY END ---

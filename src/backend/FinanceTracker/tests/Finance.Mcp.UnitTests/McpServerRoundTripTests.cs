@@ -91,7 +91,7 @@ public class McpServerRoundTripTests
 
         var result = new AgentResult(
             action.ActionId,
-            new[] { new ProposedChange(10, "categoryIds", new[] { 1 }) },
+            new[] { new ProposedChange(10, "categoryIds", "2") },
             "Assign groceries",
             DateTime.UtcNow);
 
@@ -110,7 +110,7 @@ public class McpServerRoundTripTests
         var action = server.RequestAction(contextId, ActionType.Categorize);
         server.ReceiveResult(new AgentResult(
             action.ActionId,
-            new[] { new ProposedChange(10, "categoryIds", new[] { 1 }) },
+            new[] { new ProposedChange(10, "categoryIds", "2") },
             "ok", DateTime.UtcNow));
 
         var result = server.Confirm(contextId);
@@ -169,6 +169,76 @@ public class McpServerRoundTripTests
         server.Confirm(contextId);
 
         Assert.Throws<InvalidOperationException>(() => server.Rollback(contextId, "too late"));
+    }
+
+    // Edge case: non-ambiguous transaction without CategoryIds is rejected at sendContext
+    [Fact]
+    public void SendContext_NonAmbiguousTransactionWithoutCategoryIds_Throws()
+    {
+        var server = BuildServer();
+        var txns = new[]
+        {
+            new PendingTransactionItem(10, 47.50m, "Expense", DateTime.UtcNow, "ambiguous"),
+            new PendingTransactionItem(11, 20.00m, "Expense", DateTime.UtcNow, "non-ambiguous, no categories")
+        };
+
+        Assert.Throws<ArgumentException>(() => server.SendContext(txns, new[] { 10 }));
+    }
+
+    // Non-ambiguous transactions (with pre-set CategoryIds) are saved on confirm
+    [Fact]
+    public void Confirm_NonAmbiguousTransactionsAreSavedWithProvidedCategories()
+    {
+        var txServiceMock = new Mock<ITransactionService>();
+        var loggerMock = new Mock<IMcpIterationLogger>(MockBehavior.Strict);
+        loggerMock.Setup(l => l.Log(It.IsAny<IterationLogEntry>()));
+
+        var server = new McpServer(
+            new McpContextStore(), new ContextRedactor(), loggerMock.Object,
+            StubCategoryService(), txServiceMock.Object);
+
+        var txns = new[]
+        {
+            new PendingTransactionItem(10, 47.50m, "Expense", DateTime.UtcNow, "ambiguous"),
+            new PendingTransactionItem(11, 20.00m, "Expense", DateTime.UtcNow, "non-ambiguous", CategoryIds: new[] { 2 })
+        };
+        var contextId = server.SendContext(txns, new[] { 10 });
+        var action = server.RequestAction(contextId, ActionType.Categorize);
+        server.ReceiveResult(new AgentResult(
+            action.ActionId,
+            new[] { new ProposedChange(10, "categoryId", "2") },
+            "Groceries", DateTime.UtcNow));
+
+        server.Confirm(contextId);
+
+        txServiceMock.Verify(s => s.Create(It.IsAny<Finance.Business.Dtos.Transactions.TransactionCreateRequest>()), Times.Exactly(2));
+    }
+
+    // Flow 4: empty ambiguousIds — all pre-categorised transactions saved on immediate confirm
+    [Fact]
+    public void SendContext_EmptyAmbiguousIds_AllTransactionsSavedOnConfirm()
+    {
+        var txServiceMock = new Mock<ITransactionService>();
+        var loggerMock = new Mock<IMcpIterationLogger>(MockBehavior.Strict);
+        loggerMock.Setup(l => l.Log(It.IsAny<IterationLogEntry>()));
+
+        var server = new McpServer(
+            new McpContextStore(), new ContextRedactor(), loggerMock.Object,
+            StubCategoryService(), txServiceMock.Object);
+
+        var txns = new[]
+        {
+            new PendingTransactionItem(101, 200.00m, "Income",  DateTime.UtcNow, "Consulting invoice", CategoryIds: new[] { 1 }),
+            new PendingTransactionItem(102,  30.00m, "Expense", DateTime.UtcNow, "Bus pass",           CategoryIds: new[] { 2 }),
+            new PendingTransactionItem(103,  15.00m, "Expense", DateTime.UtcNow, "Spotify",            CategoryIds: new[] { 2 })
+        };
+
+        var contextId = server.SendContext(txns, Array.Empty<int>());
+        var result = server.Confirm(contextId);
+
+        Assert.False(result.RequiresApproval);
+        Assert.Equal(ContextStatus.Confirmed, result.Status);
+        txServiceMock.Verify(s => s.Create(It.IsAny<Finance.Business.Dtos.Transactions.TransactionCreateRequest>()), Times.Exactly(3));
     }
 
     // Edge case: sendContext rejects empty pending transactions

@@ -57,13 +57,20 @@ public class McpServer : IMcpServer
         if (pendingTransactions.Count == 0)
             throw new ArgumentException("PendingTransactions must not be empty.", nameof(pendingTransactions));
 
-        if (ambiguousIds.Count == 0)
-            throw new ArgumentException("AmbiguousIds must not be empty.", nameof(ambiguousIds));
-
         var pendingIds = pendingTransactions.Select(t => t.Id).ToHashSet();
         if (!ambiguousIds.All(id => pendingIds.Contains(id)))
             throw new ArgumentException(
                 "All ambiguous IDs must reference a pending transaction.", nameof(ambiguousIds));
+
+        var ambiguousSet = new HashSet<int>(ambiguousIds);
+        var missingCategories = pendingTransactions
+            .Where(t => !ambiguousSet.Contains(t.Id) && (t.CategoryIds is null || t.CategoryIds.Count == 0))
+            .Select(t => t.Id)
+            .ToList();
+        if (missingCategories.Count > 0)
+            throw new ArgumentException(
+                $"Non-ambiguous transactions must supply CategoryIds: [{string.Join(", ", missingCategories)}].",
+                nameof(pendingTransactions));
 
         var categoryMappings = _categoryService.GetAll()
             .Select(c => new CategoryMappingItem(c.Id, c.Name, c.Type.ToString()))
@@ -150,7 +157,8 @@ public class McpServer : IMcpServer
 
         foreach (var change in changes)
         {
-            if (!change.TargetField.Equals("categoryId", StringComparison.OrdinalIgnoreCase))
+            if (!change.TargetField.Equals("categoryId", StringComparison.OrdinalIgnoreCase) &&
+                !change.TargetField.Equals("categoryIds", StringComparison.OrdinalIgnoreCase))
                 continue;
 
             if (!int.TryParse(change.ProposedValue?.ToString(), out var categoryId))
@@ -307,12 +315,10 @@ public class McpServer : IMcpServer
             .Select(kv => _receivedResults.GetValueOrDefault(kv.Key))
             .LastOrDefault(r => r is not null);
 
-        if (latestResult is null)
-            return;
-
-        var changesByTx = latestResult.ProposedChanges
+        var changesByTx = latestResult?.ProposedChanges
             .GroupBy(c => c.TransactionId)
-            .ToDictionary(g => g.Key, g => g.ToList());
+            .ToDictionary(g => g.Key, g => g.ToList())
+            ?? [];
 
         foreach (var tx in context.PendingTransactions)
         {
@@ -320,13 +326,26 @@ public class McpServer : IMcpServer
             changes ??= [];
 
             var categoryChange = changes.FirstOrDefault(c =>
-                c.TargetField.Equals("categoryId", StringComparison.OrdinalIgnoreCase));
+                c.TargetField.Equals("categoryId", StringComparison.OrdinalIgnoreCase) ||
+                c.TargetField.Equals("categoryIds", StringComparison.OrdinalIgnoreCase));
 
             var typeChange = changes.FirstOrDefault(c =>
                 c.TargetField.Equals("transactionType", StringComparison.OrdinalIgnoreCase));
 
             if (categoryChange is null && typeChange is null)
+            {
+                // No agent changes — non-ambiguous transactions carry their own CategoryIds
+                if (tx.CategoryIds is null || tx.CategoryIds.Count == 0)
+                    continue;
+
+                _transactionService.Create(new TransactionCreateRequest(
+                    Timestamp: tx.Date,
+                    Description: tx.Description,
+                    Amount: tx.Amount,
+                    Type: Enum.Parse<TransactionType>(tx.TransactionType, ignoreCase: true),
+                    CategoryIds: tx.CategoryIds));
                 continue;
+            }
 
             var type = Enum.TryParse<TransactionType>(
                 typeChange?.ProposedValue?.ToString() ?? tx.TransactionType,
@@ -338,7 +357,7 @@ public class McpServer : IMcpServer
             IReadOnlyList<int> categoryIds = categoryChange is not null
                 && int.TryParse(categoryChange.ProposedValue?.ToString(), out var categoryId)
                 ? [categoryId]
-                : [];
+                : tx.CategoryIds ?? [];
 
             _transactionService.Create(new TransactionCreateRequest(
                 Timestamp: tx.Date,
