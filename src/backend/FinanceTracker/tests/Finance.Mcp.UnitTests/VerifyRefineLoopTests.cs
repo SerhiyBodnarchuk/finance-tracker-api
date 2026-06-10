@@ -53,7 +53,7 @@ public class VerifyRefineLoopTests
         // Caller decides second response is valid and receives it
         var validResult = new AgentResult(
             action2.ActionId,
-            new[] { new ProposedChange(10, "categoryIds", new[] { 1 }) },
+            new[] { new ProposedChange(10, "categoryIds", "2") },
             "Assign groceries",
             DateTime.UtcNow);
         server.ReceiveResult(validResult);

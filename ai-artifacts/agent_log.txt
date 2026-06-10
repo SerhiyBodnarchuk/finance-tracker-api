@@ -4357,3 +4357,120 @@ Decision:   accepted
 Reason:     Diff inspection wastes tokens when a simple branch-name message suffices.
 Files:      .claude/skills/git-ship/SKILL.md
 ---
+
+---
+[2026-06-10 14:30:00] | Model: claude-sonnet-4-6
+Prompt:     User asked to run all three end-to-end demo flows from specs/007-mcp-server/demo-flows.md against the live finance-mcp server.
+Suggestion: Executed all three flows (happy-path categorise, type-change with human approval, blocked incompatible category) using the MCP tools; all flows produced the exact outcomes specified in the demo doc.
+Decision:   accepted
+Reason:     n/a
+Files:      none
+---
+
+---
+[2026-06-10 15:00:00] | Model: claude-sonnet-4-6
+Prompt:     User asked to change the MCP server behaviour so all valid (non-ambiguous) transactions are saved on confirm, while ambiguous transactions still go through the agent categorisation flow.
+Suggestion: Added optional CategoryIds to PendingTransactionItem, added SendContext validation requiring non-ambiguous transactions to supply CategoryIds, and updated ApplyProposedChanges to save non-ambiguous transactions with their pre-set categories instead of skipping them; added two new unit tests covering the new behaviour.
+Decision:   accepted
+Reason:     Silent drop of non-ambiguous transactions was confusing — callers passing a mix of known and unknown transactions expected all of them to be committed on confirm.
+Files:      src/backend/FinanceTracker/Finance.Mcp/Schema/PendingTransactionItem.cs, src/backend/FinanceTracker/Finance.Mcp/McpServer.cs, src/backend/FinanceTracker/tests/Finance.Mcp.UnitTests/McpServerRoundTripTests.cs
+---
+
+---
+[2026-06-10 14:30:00] | Model: claude-sonnet-4-6
+Prompt:     User asked to test all three end-to-end flows from specs/007-mcp-server/demo-flows.md using the finance-mcp MCP tools.
+Suggestion: Executed all three flows live via MCP tools: Flow 1 (auto-confirm category), Flow 2 (human approval gate for type change), Flow 3 (incompatible category rejection) — all passed with results matching the spec exactly.
+Decision:   accepted
+Reason:     n/a
+Files:      none
+---
+
+---
+[2026-06-10 14:45:00] | Model: claude-sonnet-4-6
+Prompt:     User asked to add a Flow 4 scenario to demo-flows.md covering bulk import of 3 pre-categorised transactions with empty ambiguousIds, then immediately confirm, and test the flow live.
+Suggestion: Added Flow 4 to demo-flows.md, removed the empty-ambiguousIds guard from McpServer.cs, added unit test SendContext_EmptyAmbiguousIds_AllTransactionsSavedOnConfirm to McpServerRoundTripTests.cs (all 14 tests pass); live test blocked pending MCP server restart.
+Decision:   accepted
+Reason:     n/a
+Files:      specs/007-mcp-server/demo-flows.md, src/backend/FinanceTracker/Finance.Mcp/McpServer.cs, src/backend/FinanceTracker/tests/Finance.Mcp.UnitTests/McpServerRoundTripTests.cs
+---
+
+---
+[2026-06-10 14:00:00] | Model: claude-sonnet-4-6
+Prompt:     Test Flow 4 from specs/007-mcp-server/demo-flows.md live: send 3 pre-categorised transactions with ambiguousIds=[], confirm immediately, and verify all three appear in finance://transactions.
+Suggestion: Executed sendContext with ambiguousIds=[], confirmed the returned context ID (requiresApproval=false, status=Confirmed), and read finance://transactions — all three transactions (Consulting invoice, Bus pass, Spotify) written to the store. Flow 4 PASS.
+Decision:   accepted
+Reason:     Verifying the code change that allows ambiguousIds=[] in sendContext works end-to-end without triggering an agent loop.
+Files:      none
+---
+
+---
+[2026-06-10 14:05:00] | Model: claude-sonnet-4-6
+Prompt:     Improve demo-flows.md by adding instructions that each flow should include a human-readable summary so the file is easy to use during a demo.
+Suggestion: Added an authoring note at the top of the file instructing that each flow must include a one-or-two sentence plain-language summary beneath the scenario line, written for non-technical stakeholders.
+Decision:   modified
+Reason:     User wanted only the instruction/guideline added, not the actual summaries for each flow.
+Files:      specs/007-mcp-server/demo-flows.md
+---
+
+---
+[2026-06-10 14:10:00] | Model: claude-sonnet-4-6
+Prompt:     Run Flow 1 (happy path: categorise a transaction) from specs/007-mcp-server/demo-flows.md live using the finance-mcp MCP server.
+Suggestion: Executed all five steps — sendContext (ambiguous Tesco transaction), requestAction, receiveResult (Groceries/category 2), confirm — all returned expected values, but the Tesco transaction was absent from finance://transactions. Flow 1 FAIL: confirm writes are not persisting when category was assigned via receiveResult.
+Decision:   accepted
+Reason:     n/a
+Files:      none
+---
+
+---
+[2026-06-10 14:20:00] | Model: claude-sonnet-4-6
+Prompt:     Fix the bug where transactions confirmed after the requestAction/receiveResult loop were not being persisted to the store (Flow 1 FAIL).
+Suggestion: Fixed McpServer.cs to accept both "categoryId" and "categoryIds" as valid targetField values in ValidateCategoryCompatibility and ApplyProposedChanges; updated two unit tests that were passing an int[] ProposedValue (invalid per contract) to the correct string form "2". All 34 MCP unit tests pass.
+Decision:   accepted
+Reason:     n/a
+Files:      src/backend/FinanceTracker/Finance.Mcp/McpServer.cs, src/backend/FinanceTracker/tests/Finance.Mcp.UnitTests/McpServerRoundTripTests.cs
+---
+
+---
+[2026-06-10 11:30:00] | Model: claude-sonnet-4-6
+Prompt:     User asked to run Flow 1 (happy path: categorise a transaction) from specs/007-mcp-server/demo-flows.md.
+Suggestion: Executed all five steps of Flow 1 using the finance-mcp MCP tools: sendContext, requestAction, receiveResult, confirm, and ReadMcpResourceTool — verified Tesco transaction (id=10) was written to the store with category Groceries and no human approval gate triggered.
+Decision:   accepted
+Reason:     n/a
+Files:      none
+---
+
+---
+[2026-06-10 11:45:00] | Model: claude-sonnet-4-6
+Prompt:     User asked to run Flow 2 (happy path: change transaction type requiring human approval) from specs/007-mcp-server/demo-flows.md.
+Suggestion: Executed all six steps of Flow 2 using finance-mcp MCP tools: sendContext, requestAction, receiveResult (proposing transactionType→Income), confirm (returned requiresApproval=true/PendingApproval), approveConfirm, and verified the Freelance payment transaction was stored with corrected type Income.
+Decision:   accepted
+Reason:     n/a
+Files:      none
+---
+
+---
+[2026-06-10 12:00:00] | Model: claude-sonnet-4-6
+Prompt:     User asked to run Flow 3 (blocked: incompatible category type) from specs/007-mcp-server/demo-flows.md.
+Suggestion: Executed all 3 steps of Flow 3 using finance-mcp MCP tools: sendContext, requestAction, then receiveResult deliberately proposing Income category (Salary) for an Expense transaction — server returned the expected incompatibility error and no transaction was stored.
+Decision:   accepted
+Reason:     n/a
+Files:      none
+---
+
+---
+[2026-06-10 13:15:00] | Model: claude-sonnet-4-6
+Prompt:     User asked to run Flow 4 (happy path: bulk import with no ambiguous transactions) from specs/007-mcp-server/demo-flows.md.
+Suggestion: Executed all 3 steps of Flow 4 using finance-mcp MCP tools: sendContext with three pre-categorised transactions and empty ambiguousIds, confirm (returned requiresApproval=false/Confirmed immediately), then verified all three transactions (Consulting invoice, Bus pass, Spotify) appeared in the store via finance://transactions.
+Decision:   accepted
+Reason:     n/a
+Files:      none
+---
+
+---
+[2026-06-10 14:00:00] | Model: claude-sonnet-4-6
+Prompt:     User asked to fix three failing MCP unit tests all throwing "ProposedValue 'System.Int32[]' for targetField 'categoryId' is not a valid integer."
+Suggestion: Changed ProposedValue from int array new[] { 1 } to a compatible string category ID "2" (Groceries, Expense) in IterationLogTests, VerifyRefineLoopTests, and ContextSnapshotReplayTests — aligning with ValidateCategoryCompatibility's expectation of a parseable string. All 34 tests now pass.
+Decision:   accepted
+Reason:     n/a
+Files:      src/backend/FinanceTracker/tests/Finance.Mcp.UnitTests/IterationLogTests.cs, src/backend/FinanceTracker/tests/Finance.Mcp.UnitTests/VerifyRefineLoopTests.cs, src/backend/FinanceTracker/tests/Finance.Mcp.UnitTests/ContextSnapshotReplayTests.cs
+---
