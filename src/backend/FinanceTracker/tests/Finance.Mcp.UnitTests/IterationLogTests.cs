@@ -41,7 +41,7 @@ public class IterationLogTests : IDisposable
         var action = server.RequestAction(contextId, ActionType.Categorize);
         server.ReceiveResult(new AgentResult(
             action.ActionId,
-            new[] { new ProposedChange(1, "categoryIds", new[] { 1 }) },
+            new[] { new ProposedChange(1, "categoryIds", "2") },
             "assign food",
             DateTime.UtcNow));
 

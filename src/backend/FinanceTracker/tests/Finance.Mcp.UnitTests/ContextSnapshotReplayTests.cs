@@ -50,7 +50,7 @@ public class ContextSnapshotReplayTests
             // Deterministic mock agent: always returns the same response
             var result = new AgentResult(
                 action.ActionId,
-                new[] { new ProposedChange(42, "categoryIds", new[] { 1 }) },
+                new[] { new ProposedChange(42, "categoryIds", "2") },
                 "Assign groceries category",
                 new DateTime(2026, 6, 1, 0, 0, 0, DateTimeKind.Utc));
 

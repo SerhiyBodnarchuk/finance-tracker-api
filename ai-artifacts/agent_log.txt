@@ -4465,3 +4465,12 @@ Decision:   accepted
 Reason:     n/a
 Files:      none
 ---
+
+---
+[2026-06-10 14:00:00] | Model: claude-sonnet-4-6
+Prompt:     User asked to fix three failing MCP unit tests all throwing "ProposedValue 'System.Int32[]' for targetField 'categoryId' is not a valid integer."
+Suggestion: Changed ProposedValue from int array new[] { 1 } to a compatible string category ID "2" (Groceries, Expense) in IterationLogTests, VerifyRefineLoopTests, and ContextSnapshotReplayTests — aligning with ValidateCategoryCompatibility's expectation of a parseable string. All 34 tests now pass.
+Decision:   accepted
+Reason:     n/a
+Files:      src/backend/FinanceTracker/tests/Finance.Mcp.UnitTests/IterationLogTests.cs, src/backend/FinanceTracker/tests/Finance.Mcp.UnitTests/VerifyRefineLoopTests.cs, src/backend/FinanceTracker/tests/Finance.Mcp.UnitTests/ContextSnapshotReplayTests.cs
+---
