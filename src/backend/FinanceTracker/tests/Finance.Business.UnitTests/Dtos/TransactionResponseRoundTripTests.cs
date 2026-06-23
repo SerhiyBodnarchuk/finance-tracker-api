@@ -28,7 +28,7 @@ public class TransactionResponseRoundTripTests
         using var document = JsonDocument.Parse(json);
         var root = document.RootElement;
         Assert.Equal(4, root.GetProperty("id").GetInt32());
-        Assert.Equal("2026-05-05T18:42:00", root.GetProperty("timestamp").GetString());
+        Assert.Equal("2026-05-05T18:42:00Z", root.GetProperty("timestamp").GetString());
         Assert.Equal("Grocery + health-food run", root.GetProperty("description").GetString());
         Assert.Equal(42.10m, root.GetProperty("amount").GetDecimal());
         Assert.Equal("Expense", root.GetProperty("transactionType").GetString());

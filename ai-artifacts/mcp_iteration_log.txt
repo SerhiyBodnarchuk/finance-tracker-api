@@ -277,3 +277,12 @@ AgentOutput:
 AcceptedDiff: null
 DecisionReason: confirmed
 --- MCP ENTRY END ---
+--- MCP ENTRY START ---
+Timestamp: 2026-06-19T12:02:36.7677261Z
+Prompt: Grocery spend
+ContextSnapshotHash: 4e5f1650b52fa7ab5cfa9b159fdf55ce4dbefd092ad7d0ec41d1dac347b6db16
+ModelName: unknown
+AgentOutput: {"actionId":"b4f9711c23ed4a779b0b78bf21b77bee","proposedChanges":[{"transactionId":10,"targetField":"categoryId","proposedValue":"2"}],"explanation":"Grocery spend","receivedAt":"2026-06-19T12:02:34.2046062Z"}
+AcceptedDiff: [{"transactionId":10,"targetField":"categoryId","proposedValue":"2"}]
+DecisionReason: confirmed
+--- MCP ENTRY END ---

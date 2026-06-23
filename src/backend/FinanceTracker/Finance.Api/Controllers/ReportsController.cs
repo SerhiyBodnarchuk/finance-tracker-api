@@ -11,6 +11,8 @@ namespace Finance.Api.Controllers;
 public sealed class ReportsController(IReportService reports) : ControllerBase
 {
     [HttpPost]
+    [ProducesResponseType<ReportResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     public ActionResult<ReportResult> Generate([FromBody] ReportRequest request)
     {
         try

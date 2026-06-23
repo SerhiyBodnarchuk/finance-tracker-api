@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Finance.Business.Converters;
 
 namespace Finance.Business;
 
@@ -9,6 +10,10 @@ public static class JsonSerializationOptions
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         DefaultIgnoreCondition = JsonIgnoreCondition.Never,
-        Converters = { new JsonStringEnumConverter(namingPolicy: null, allowIntegerValues: false) }
+        Converters =
+        {
+            new JsonStringEnumConverter(namingPolicy: null, allowIntegerValues: false),
+            new UtcDateTimeConverter()
+        }
     };
 }
