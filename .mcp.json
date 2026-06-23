@@ -16,6 +16,10 @@
       "headers": {
         "Authorization": "Bearer ${GITHUB_PAT}"
       }
+    },
+    "sdlc-cgen": {
+      "type": "http",
+      "url": "https://mcpplatformapim.azure-api.net/sdlc-cgen/mcp"
     }
   }
 }

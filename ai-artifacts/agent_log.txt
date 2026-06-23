@@ -4474,3 +4474,93 @@ Decision:   accepted
 Reason:     n/a
 Files:      src/backend/FinanceTracker/tests/Finance.Mcp.UnitTests/IterationLogTests.cs, src/backend/FinanceTracker/tests/Finance.Mcp.UnitTests/VerifyRefineLoopTests.cs, src/backend/FinanceTracker/tests/Finance.Mcp.UnitTests/ContextSnapshotReplayTests.cs
 ---
+
+---
+[2026-06-19 10:30:00] | Model: claude-sonnet-4-6
+Prompt:     User asked to run Flow 1 (happy path: categorise a transaction) from specs/007-mcp-server/demo-flows.md using the live finance-mcp MCP server.
+Suggestion: Executed all five steps of Flow 1 via MCP tools — sendContext, requestAction, receiveResult, confirm, and read finance://transactions — verifying the Tesco transaction was auto-confirmed and stored with category Groceries (id=2).
+Decision:   accepted
+Reason:     n/a
+Files:      none
+---
+
+---
+[2026-06-23 11:30:00] | Model: claude-sonnet-4-6
+Prompt:     User asked to run the project-analyzer skill on the existing finance-tracker-api repository to document its tech stack and conventions.
+Suggestion: Analyzed all .csproj manifests, Program.cs, CI workflow, launchSettings, and test projects; generated .sdlc-cgen/project-context.json (full tech stack) and .sdlc-cgen/code-convention.md (project-specific coding rules).
+Decision:   accepted
+Reason:     n/a
+Files:      .sdlc-cgen/project-context.json, .sdlc-cgen/code-convention.md
+---
+
+---
+[2026-06-23 14:30:00] | Model: claude-sonnet-4-6
+Prompt:     User asked to run the be-api-validator skill against the locally running Finance.Api.
+Suggestion: Fetched the OpenAPI spec from /openapi/v1.json, installed Schemathesis 4.21.10 in a venv, ran all phases (Coverage, Fuzzing, Stateful) against https://localhost:7235, and produced a structured VALIDATION-REPORT.md classifying 14 unique failures: 5 high (timestamp RFC 3339 format violation, undocumented 201/204/409 on success/conflict paths), 6 medium (missing 400/404 response codes in spec), 3 low (schema constraint gaps and path-parameter type-union confusion).
+Decision:   accepted
+Reason:     n/a
+Files:      .sdlc-cgen/sessions/manual-20260623/spec.json, .sdlc-cgen/sessions/manual-20260623/api-validation/junit.xml, .sdlc-cgen/sessions/manual-20260623/api-validation/cassette.har, .sdlc-cgen/sessions/manual-20260623/api-validation/schemathesis.log, .sdlc-cgen/sessions/manual-20260623/api-validation/VALIDATION-REPORT.md
+---
+
+---
+[2026-06-23 14:45:00] | Model: claude-sonnet-4-6
+Prompt:     User asked to fix the status code mismatches identified in the Schemathesis validation report.
+Suggestion: Added [ProducesResponseType] attributes to all affected controller actions so the OpenAPI generator documents the actual response codes (201/400/409 on POST /api/Categories, 201/400 on POST /api/Transactions, 204/404 on DELETE /api/Transactions/{id}, 404 on GET /api/Categories/{id} and GET /api/Transactions/{id}, 400 on POST /api/Reports); no runtime behaviour was changed.
+Decision:   accepted
+Reason:     n/a
+Files:      src/backend/FinanceTracker/Finance.Api/Controllers/CategoriesController.cs, src/backend/FinanceTracker/Finance.Api/Controllers/TransactionsController.cs, src/backend/FinanceTracker/Finance.Api/Controllers/ReportsController.cs
+---
+
+---
+[2026-06-23 15:10:00] | Model: claude-sonnet-4-6
+Prompt:     User asked to fix low-priority Schemathesis issues (DTO schema constraints, JsonElement nullable, path parameter integer type union), with a plan-first approval step.
+Suggestion: Attempted to add [MinLength]/[Range] DataAnnotations to record DTOs and two OpenAPI schema transformers to Program.cs; the DTO approach was abandoned after discovering ASP.NET Core throws InvalidOperationException when validation attributes appear on record properties (requires constructor-parameter target, which the OpenAPI generator cannot read). All DTO and Program.cs changes were fully reverted; the net result is no files changed.
+Decision:   rejected
+Reason:     DataAnnotations on positional record types conflict between ASP.NET model validation (requires param target) and OpenAPI schema generation (reads property target) — no viable approach without breaking tests.
+Files:      none
+---
+
+---
+[2026-06-23 15:30:00] | Model: claude-sonnet-4-6
+Prompt:     User asked to fix the high-severity timestamp RFC 3339 format violation found by Schemathesis (timestamps serialised without timezone offset).
+Suggestion: Created UtcDateTimeConverter (a custom JsonConverter<DateTime> that appends Z on write and uses RoundtripKind on read) and registered it in JsonSerializationOptions.Default; updated the one existing unit test that asserted the old no-zone format to expect the new Z-suffixed string.
+Decision:   accepted
+Reason:     n/a
+Files:      src/backend/FinanceTracker/Finance.Business/Converters/UtcDateTimeConverter.cs, src/backend/FinanceTracker/Finance.Business/JsonSerializationOptions.cs, src/backend/FinanceTracker/tests/Finance.Business.UnitTests/Dtos/TransactionResponseRoundTripTests.cs
+---
+
+---
+[2026-06-23 15:50:00] | Model: claude-sonnet-4-6
+Prompt:     User asked to re-run the be-api-validator skill against the updated API to verify fixes from this session.
+Suggestion: Fetched a fresh spec, ran Schemathesis (1049 cases), and produced a comparative VALIDATION-REPORT.md: failures dropped from 14 to 12, the two high-severity timestamp issues are resolved, the six previously undocumented status codes are fixed, and the remaining 12 failures are 9 medium content-type mismatches (application/problem+json undocumented on error responses — single root cause) and 3 low carry-overs from run 1.
+Decision:   accepted
+Reason:     n/a
+Files:      .sdlc-cgen/sessions/manual-20260623-r2/spec.json, .sdlc-cgen/sessions/manual-20260623-r2/api-validation/junit.xml, .sdlc-cgen/sessions/manual-20260623-r2/api-validation/cassette.har, .sdlc-cgen/sessions/manual-20260623-r2/api-validation/schemathesis.log, .sdlc-cgen/sessions/manual-20260623-r2/api-validation/VALIDATION-REPORT.md
+---
+
+---
+[2026-06-23 16:10:00] | Model: claude-sonnet-4-6
+Prompt:     User asked to fix the 9 medium-severity content-type mismatch issues from run-2 validation report (error responses using application/problem+json not documented in spec).
+Suggestion: Upgraded all bare [ProducesResponseType(4xx)] attributes to [ProducesResponseType<ProblemDetails>(4xx)] on every error-returning action across all three controllers, then added an AddOperationTransformer in Program.cs that replaces inherited success content types with application/problem+json for any response whose schema is a $ref to ProblemDetails; all 171 tests pass.
+Decision:   accepted
+Reason:     n/a
+Files:      src/backend/FinanceTracker/Finance.Api/Controllers/CategoriesController.cs, src/backend/FinanceTracker/Finance.Api/Controllers/TransactionsController.cs, src/backend/FinanceTracker/Finance.Api/Controllers/ReportsController.cs, src/backend/FinanceTracker/Finance.Api/Program.cs
+---
+
+---
+[2026-06-23 23:20:00] | Model: claude-sonnet-4-6
+Prompt:     User invoked /be-api-validator to run Schemathesis contract tests for run 3 (r3) against the updated API code that added ProducesResponseType<ProblemDetails> attributes and an operation transformer.
+Suggestion: Ran Schemathesis against https://localhost:7235 with the r3 spec, produced all CI artifacts (junit.xml, cassette.har, schemathesis.log), and generated VALIDATION-REPORT.md documenting 12 failures (9 medium, 3 low) — same count as r2 because the operation transformer's runtime type-check (is not OpenApiSchemaReference) silently no-ops in OpenAPI.NET v2/.NET 10, leaving content types unchanged. Report includes root-cause analysis and the status-code-based fix needed.
+Decision:   accepted
+Reason:     Transformer bug will be fixed separately; r3 report captures the current state accurately.
+Files:      .sdlc-cgen/sessions/manual-20260623-r3/spec.json, .sdlc-cgen/sessions/manual-20260623-r3/api-validation/VALIDATION-REPORT.md, .sdlc-cgen/sessions/manual-20260623-r3/api-validation/junit.xml, .sdlc-cgen/sessions/manual-20260623-r3/api-validation/cassette.har, .sdlc-cgen/sessions/manual-20260623-r3/api-validation/schemathesis.log
+---
+
+---
+[2026-06-23 23:35:00] | Model: claude-sonnet-4-6
+Prompt:     User asked whether the status-code-based transformer fix was a workaround and whether a better (schema-aware) fix exists; then decided to remove the non-functional transformer entirely.
+Suggestion: Investigated OpenAPI.NET 2.0.0 internals via XML docs and found that the runtime type stored in OpenApiMediaType.Schema is likely JsonSchemaReference (parent) rather than OpenApiSchemaReference (child), explaining the silent no-op; recommended removing the broken transformer as dead code and accepting the content-type issue as a known spec limitation.
+Decision:   accepted
+Reason:     Fixing the content-type mismatch properly requires OpenAPI.NET 2.x internals not worth the complexity; schema documentation (ProblemDetails $ref) is correct, only content-type header remains wrong in spec.
+Files:      src/backend/FinanceTracker/Finance.Api/Program.cs
+---

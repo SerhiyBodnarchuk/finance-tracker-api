@@ -17,6 +17,8 @@ public sealed class CategoriesController(
         Ok(categories.GetAll());
 
     [HttpGet("{id:int}")]
+    [ProducesResponseType<CategoryResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public ActionResult<CategoryResponse> GetById(int id)
     {
         var response = categories.GetById(id);
@@ -33,6 +35,9 @@ public sealed class CategoriesController(
     }
 
     [HttpPost]
+    [ProducesResponseType<CategoryResponse>(StatusCodes.Status201Created)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public ActionResult<CategoryResponse> Create([FromBody] CategoryCreateRequest request)
     {
         var result = validator.ValidateForCreate(request);

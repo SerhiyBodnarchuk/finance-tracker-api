@@ -1,0 +1,121 @@
+{
+  "projectType": "backend",
+  "projectPath": "C:/Projects/Currys/finance-tracker-api",
+  "analysisDate": "2026-06-23",
+
+  "primaryLanguage": "C#",
+  "languageVersion": null,
+  "runtime": ".NET",
+  "runtimeVersion": "net10.0",
+
+  "framework": "ASP.NET Core",
+  "frameworkVersion": "10.0",
+  "frameworkPlugins": [
+    "Microsoft.AspNetCore.OpenApi@10.0.8",
+    "Scalar.AspNetCore@2.14.14"
+  ],
+
+  "buildTool": "dotnet CLI / MSBuild",
+  "buildToolVersion": null,
+  "packageManager": "NuGet",
+
+  "entryPoints": [
+    "src/backend/FinanceTracker/Finance.Api/Program.cs",
+    "src/backend/FinanceTracker/Finance.Mcp.Host/Program.cs"
+  ],
+
+  "apiStyle": "REST",
+  "apiDocumentation": "OpenAPI 3.x (Microsoft.AspNetCore.OpenApi built-in) — spec at /openapi/v1.json, UI via Scalar at /scalar/v1 (dev only)",
+  "servicePorts": ["7235", "5182"],
+  "basePaths": ["/api"],
+  "requestValidation": "Custom validators (TransactionValidator, CategoryValidator) in Finance.Api/Infrastructure/Validators/ — depend on ICategoryService for referential integrity",
+
+  "databases": [],
+  "orm": null,
+  "migrations": null,
+  "caching": "In-memory (singleton repositories — InMemoryCategoryRepository, InMemoryTransactionRepository — persist data for the process lifetime)",
+
+  "messaging": [],
+  "jobSchedulers": [],
+
+  "authentication": null,
+  "securityMiddleware": [],
+
+  "logging": "ASP.NET Core built-in ILogger (default Microsoft.Extensions.Logging)",
+  "metrics": null,
+  "tracing": null,
+  "healthChecks": null,
+
+  "stylingMethod": null,
+  "cssFramework": null,
+  "cssPreprocessor": null,
+
+  "stateManagement": null,
+  "routing": null,
+  "formHandling": null,
+  "httpClient": null,
+
+  "unitTestFramework": "xUnit v3",
+  "unitTestFrameworkVersion": "3.2.2",
+  "integrationTestTools": ["Microsoft.AspNetCore.Mvc.Testing@10.0.0"],
+  "e2eTestFramework": null,
+  "testUtilities": ["Moq@4.20.72"],
+  "coverageTool": null,
+
+  "linter": null,
+  "linterVersion": null,
+  "linterPlugins": [],
+  "formatter": "dotnet format (SDK built-in)",
+  "formatterVersion": null,
+  "staticAnalysis": null,
+  "typeChecking": "C# compiler (nullable reference types enabled in all projects)",
+
+  "containerization": null,
+  "kubernetes": null,
+  "cicd": "GitHub Actions (.github/workflows/ci.yml) — PR trigger on main/development; ubuntu-latest; restore → build Release → test Release; NuGet cache via actions/cache@v4",
+
+  "devCommands": {
+    "restore": "dotnet restore",
+    "build": "dotnet build",
+    "test": "dotnet test",
+    "run": "dotnet run --project src/backend/FinanceTracker/Finance.Api",
+    "test-single": "dotnet test --filter \"FullyQualifiedName~<TestName>\""
+  },
+  "devTools": ["Scalar API reference UI (dev only)"],
+  "gitHooks": null,
+  "envVariables": ["ASPNETCORE_ENVIRONMENT"],
+
+  "projectStructure": "src/backend/FinanceTracker/\n├── Finance.Api/               ASP.NET Core Web API entry point\n│   ├── Controllers/           TransactionsController, CategoriesController, ReportsController\n│   └── Infrastructure/        ProblemDetailsMappers, Validators (TransactionValidator, CategoryValidator)\n├── Finance.Business/          Business logic — all DTOs, services, report strategies\n│   ├── Dtos/                  Request/response records (Categories, Transactions, Reports)\n│   ├── Enums/                 ReportType\n│   ├── Export/                TransactionCsvFormatter\n│   ├── Mappers/               TransactionMapper, CategoryMapper\n│   ├── Services/              ICategoryService, ITransactionService, IReportService + implementations\n│   │   └── Reports/           IReportStrategy, ReportStrategyFactory, PeriodReportStrategy, IsoWeekReportStrategy\n│   └── Validation/            ValidationResult, ValidationError\n├── Finance.Data/              Domain entities and in-memory repositories\n│   ├── Models/                Transaction, Category (records), TransactionType, CategoryType (enums)\n│   └── Repositories/          IRepo interfaces + InMemory implementations (singleton)\n├── Finance.Mcp/               MCP context/replay layer\n│   ├── Client/                IMcpClient, McpClient\n│   ├── Logging/               McpIterationLogger\n│   ├── Redaction/             ContextRedactor\n│   └── Schema/                MCP message types (ActionType, AgentActionRequest, McpContext, …)\n├── Finance.Mcp.Host/          Executable MCP server host\n│   └── Program.cs\n└── tests/\n    ├── Finance.Api.IntegrationTests/   WebApplicationFactory integration tests\n    ├── Finance.Api.UnitTests/\n    ├── Finance.Business.UnitTests/\n    ├── Finance.Data.UnitTests/\n    └── Finance.Mcp.UnitTests/",
+
+  "prodDependencyCount": 4,
+  "keyProdDependencies": [
+    "Microsoft.AspNetCore.OpenApi@10.0.8",
+    "Scalar.AspNetCore@2.14.14",
+    "ModelContextProtocol@1.3.0",
+    "Microsoft.Extensions.Hosting@10.0.0"
+  ],
+  "devDependencyCount": 5,
+  "keyDevDependencies": [
+    "xunit.v3@3.2.2",
+    "xunit.runner.visualstudio@3.0.2",
+    "Microsoft.NET.Test.Sdk@17.12.0",
+    "Moq@4.20.72",
+    "Microsoft.AspNetCore.Mvc.Testing@10.0.0"
+  ],
+
+  "patterns": [
+    "Three-layer architecture with strict one-way dependency: Finance.Api → Finance.Business → Finance.Data",
+    "Domain entities (Transaction, Category) are C# records — immutable by design",
+    "All DTOs are C# records defined in Finance.Business — API layer never sees domain entities",
+    "Report system uses Factory + Strategy pattern: ReportStrategyFactory resolves ReportType enum to IReportStrategy",
+    "Reports are ad-hoc — computed fresh on every request, never persisted or cached",
+    "Repositories are singletons; everything else (services, strategies, validators) is scoped",
+    "Multi-category transactions: Transaction.CategoryIds is IReadOnlyList<int> (non-empty); each category must be type-compatible with the transaction direction",
+    "OpenAPI enum schema transformer in Program.cs forces string-typed enums (prevents integer enum serialization mismatch)",
+    "MCP context/replay layer implemented as separate projects (Finance.Mcp, Finance.Mcp.Host) with redaction support for sensitive transaction descriptions",
+    "Scalar API UI gated behind IsDevelopment() — not exposed in Release builds",
+    "Integration tests use WebApplicationFactory<Program> with 'Testing' environment to skip HTTPS redirect middleware",
+    "xUnit v3 with Xunit.Assert only — FluentAssertions explicitly excluded",
+    "Moq strict-mode mocks used in Finance.Business.UnitTests and Finance.Api.UnitTests"
+  ]
+}

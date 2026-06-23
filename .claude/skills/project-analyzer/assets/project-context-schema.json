@@ -1,0 +1,310 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ProjectContext",
+  "description": "Universal project tech stack analysis output — covers frontend, backend, or full-stack projects",
+  "type": "object",
+  "required": ["projectType", "projectPath", "analysisDate", "primaryLanguage", "framework", "buildTool", "packageManager"],
+  "properties": {
+    "projectType": {
+      "type": "string",
+      "enum": ["frontend", "backend", "fullstack"],
+      "description": "Detected project type"
+    },
+    "projectPath": {
+      "type": "string",
+      "description": "Absolute path to the analyzed project root"
+    },
+    "analysisDate": {
+      "type": "string",
+      "format": "date",
+      "description": "ISO date when analysis was performed"
+    },
+
+    "primaryLanguage": {
+      "type": "string",
+      "description": "Main programming language (e.g. TypeScript, Java, Python, Go, C#)"
+    },
+    "languageVersion": {
+      "type": ["string", "null"],
+      "description": "Language or compiler version (e.g. TypeScript 5.3.3, Java 21)"
+    },
+    "runtime": {
+      "type": ["string", "null"],
+      "description": "Runtime platform (e.g. Node.js, JVM, .NET, CPython, Go)"
+    },
+    "runtimeVersion": {
+      "type": ["string", "null"],
+      "description": "Runtime version constraint from manifests or version files"
+    },
+
+    "framework": {
+      "type": "string",
+      "description": "Primary framework (e.g. React, Next.js, Express, Spring Boot, Django)"
+    },
+    "frameworkVersion": {
+      "type": ["string", "null"],
+      "description": "Framework version from dependency manifest"
+    },
+    "frameworkPlugins": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Notable framework plugins or extensions (e.g. @vitejs/plugin-react, spring-boot-starter-security)"
+    },
+
+    "buildTool": {
+      "type": "string",
+      "description": "Primary build tool (e.g. Vite, Webpack, Maven, Gradle, go build)"
+    },
+    "buildToolVersion": {
+      "type": ["string", "null"],
+      "description": "Build tool version"
+    },
+    "packageManager": {
+      "type": "string",
+      "description": "Package manager (e.g. npm, pnpm, yarn, pip, poetry, maven)"
+    },
+
+    "entryPoints": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Application entry point files (e.g. src/main.tsx, src/index.ts, cmd/server/main.go)"
+    },
+
+    "apiStyle": {
+      "type": ["string", "null"],
+      "description": "API paradigm: REST, GraphQL, gRPC, WebSocket, event-driven, or null for frontend-only"
+    },
+    "apiDocumentation": {
+      "type": ["string", "null"],
+      "description": "API documentation tooling (e.g. OpenAPI 3.0, GraphQL schema, proto files)"
+    },
+    "servicePorts": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Default listening ports from config"
+    },
+    "basePaths": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "API base path prefixes (e.g. /api/v1)"
+    },
+    "requestValidation": {
+      "type": ["string", "null"],
+      "description": "Request/response validation library (e.g. Zod, Joi, class-validator, Pydantic)"
+    },
+
+    "databases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string", "description": "Database engine (e.g. PostgreSQL, SQLite, MongoDB)" },
+          "driver": { "type": ["string", "null"], "description": "Driver or client library name" },
+          "version": { "type": ["string", "null"], "description": "Driver version" }
+        },
+        "required": ["type"]
+      },
+      "description": "Detected database engines and drivers"
+    },
+    "orm": {
+      "type": ["string", "null"],
+      "description": "ORM or data access layer (e.g. Prisma, Drizzle, Hibernate, SQLAlchemy)"
+    },
+    "migrations": {
+      "type": ["string", "null"],
+      "description": "Migration tool (e.g. Prisma Migrate, Flyway, Alembic, Drizzle Kit)"
+    },
+    "caching": {
+      "type": ["string", "null"],
+      "description": "Caching layer (e.g. Redis, Memcached, in-memory)"
+    },
+
+    "messaging": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Message brokers or event systems (e.g. Kafka, RabbitMQ, SQS, NATS)"
+    },
+    "jobSchedulers": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Background job / scheduling libraries (e.g. BullMQ, Celery, Quartz)"
+    },
+
+    "authentication": {
+      "type": ["string", "null"],
+      "description": "Auth mechanism (e.g. JWT, OAuth2, OIDC, session-based)"
+    },
+    "securityMiddleware": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Security middleware or libraries (e.g. helmet, cors, Spring Security)"
+    },
+
+    "logging": {
+      "type": ["string", "null"],
+      "description": "Logging library (e.g. Pino, Winston, Logback, structlog)"
+    },
+    "metrics": {
+      "type": ["string", "null"],
+      "description": "Metrics collection (e.g. Prometheus, Micrometer, prom-client)"
+    },
+    "tracing": {
+      "type": ["string", "null"],
+      "description": "Distributed tracing (e.g. OpenTelemetry, Jaeger, Zipkin)"
+    },
+    "healthChecks": {
+      "type": ["string", "null"],
+      "description": "Health check mechanism (e.g. Spring Actuator, custom /health endpoint)"
+    },
+
+    "stylingMethod": {
+      "type": ["string", "null"],
+      "description": "Primary styling approach (e.g. Tailwind CSS, CSS Modules, styled-components, SCSS)"
+    },
+    "cssFramework": {
+      "type": ["string", "null"],
+      "description": "CSS component framework (e.g. Tailwind, Bootstrap, MUI, Ant Design, Chakra UI)"
+    },
+    "cssPreprocessor": {
+      "type": ["string", "null"],
+      "description": "CSS preprocessor (e.g. Sass, Less, PostCSS)"
+    },
+
+    "stateManagement": {
+      "type": ["string", "null"],
+      "description": "Client-side state library (e.g. Redux Toolkit, Zustand, Pinia, MobX)"
+    },
+    "routing": {
+      "type": ["string", "null"],
+      "description": "Client-side routing library (e.g. React Router, Vue Router, TanStack Router)"
+    },
+    "formHandling": {
+      "type": ["string", "null"],
+      "description": "Form library (e.g. React Hook Form, Formik)"
+    },
+    "httpClient": {
+      "type": ["string", "null"],
+      "description": "HTTP client library (e.g. Axios, TanStack Query, SWR, fetch)"
+    },
+
+    "unitTestFramework": {
+      "type": ["string", "null"],
+      "description": "Unit test framework (e.g. Vitest, Jest, JUnit 5, pytest)"
+    },
+    "unitTestFrameworkVersion": {
+      "type": ["string", "null"],
+      "description": "Unit test framework version"
+    },
+    "integrationTestTools": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Integration / contract test tools (e.g. Supertest, Testcontainers, WireMock, Pact)"
+    },
+    "e2eTestFramework": {
+      "type": ["string", "null"],
+      "description": "E2E test framework (e.g. Playwright, Cypress, Puppeteer)"
+    },
+    "testUtilities": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Auxiliary test utilities (e.g. Testing Library, jsdom, happy-dom, Faker)"
+    },
+    "coverageTool": {
+      "type": ["string", "null"],
+      "description": "Code coverage tool (e.g. v8, istanbul, JaCoCo)"
+    },
+
+    "linter": {
+      "type": ["string", "null"],
+      "description": "Primary linter (e.g. ESLint, Ruff, golangci-lint, Checkstyle)"
+    },
+    "linterVersion": {
+      "type": ["string", "null"],
+      "description": "Linter version"
+    },
+    "linterPlugins": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Notable linter plugins (e.g. @typescript-eslint, eslint-plugin-react)"
+    },
+    "formatter": {
+      "type": ["string", "null"],
+      "description": "Code formatter (e.g. Prettier, Black, gofmt, dotnet format)"
+    },
+    "formatterVersion": {
+      "type": ["string", "null"],
+      "description": "Formatter version"
+    },
+    "staticAnalysis": {
+      "type": ["string", "null"],
+      "description": "Static analysis tools (e.g. SonarQube, SpotBugs, mypy, bandit)"
+    },
+    "typeChecking": {
+      "type": ["string", "null"],
+      "description": "Type checker if separate from language (e.g. TypeScript, mypy, Flow)"
+    },
+
+    "containerization": {
+      "type": ["string", "null"],
+      "description": "Container tooling (e.g. Docker, Podman, docker-compose)"
+    },
+    "kubernetes": {
+      "type": ["string", "null"],
+      "description": "K8s deployment tooling (e.g. Helm, Kustomize, plain manifests)"
+    },
+    "cicd": {
+      "type": ["string", "null"],
+      "description": "CI/CD platform (e.g. GitHub Actions, GitLab CI, Jenkins, Azure Pipelines)"
+    },
+
+    "devCommands": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Key dev scripts from package.json scripts or Makefile targets (e.g. {\"dev\": \"vite\", \"build\": \"tsc && vite build\"})"
+    },
+    "devTools": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Developer experience tools (e.g. hot reload, dev proxy, storybook)"
+    },
+    "gitHooks": {
+      "type": ["string", "null"],
+      "description": "Git hook tooling (e.g. Husky + lint-staged, pre-commit, Lefthook)"
+    },
+    "envVariables": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Known environment variable names from .env.example or documentation"
+    },
+
+    "projectStructure": {
+      "type": "string",
+      "description": "Tree representation of key directories (2-3 levels deep)"
+    },
+
+    "prodDependencyCount": {
+      "type": ["integer", "null"],
+      "description": "Total number of production dependencies"
+    },
+    "keyProdDependencies": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "5-15 most significant production dependencies with versions"
+    },
+    "devDependencyCount": {
+      "type": ["integer", "null"],
+      "description": "Total number of development dependencies"
+    },
+    "keyDevDependencies": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "5-15 most significant development dependencies with versions"
+    },
+
+    "patterns": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Notable architectural patterns, conventions, or observations (e.g. 'Layered architecture: routes → controllers → services → repository', 'Monorepo with Turborepo')"
+    }
+  }
+}

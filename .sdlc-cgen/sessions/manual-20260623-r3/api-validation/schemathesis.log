@@ -1,0 +1,259 @@
+Schemathesis v4.21.10
+━━━━━━━━━━━━━━━━━━━━━
+
+
+ ✅  Loaded specification from                                                 
+ C:\Projects\Currys\finance-tracker-api\.sdlc-cgen\sessions\manual-20260623-r3 
+ \spec.json (in 0.51s)                                                         
+
+     Base URL:         https://localhost:7235                                  
+     Specification:    Open API 3.1.1                                          
+     Operations:       9 selected / 9 total                                    
+
+
+ ✅  API capabilities:                                                         
+
+     Supports NULL byte in headers:                            ✘               
+     Accepts backslash and control characters in URL paths:    ✓               
+
+ ⏭   Examples (in 0.12s)                                                       
+                                                                               
+     ⏭  9 skipped                                                              
+
+ ❌  Coverage (in 1.39s)                                                       
+                                                                               
+     ✅ 3 passed  ❌ 6 failed                                                  
+
+ ❌  Fuzzing (in 1.51s)                                                        
+                                                                               
+     ✅ 4 passed  ❌ 5 failed                                                  
+
+ ❌  Stateful (in 30.88s)                                                      
+
+     Scenarios:    401                                                         
+     API Links:    2 covered / 7 selected / 7 total (7 inferred)               
+
+     ✅ 395 passed  ❌ 6 failed                                                
+
+=================================== FAILURES ===================================
+________________________ DELETE /api/Transactions/{id} _________________________
+1. Test Case ID: KzDGHJ
+
+- Missing Content-Type header
+
+    The following media types are documented in the schema:
+    - `text/plain`
+    - `application/json`
+    - `text/json`
+
+[404] Not Found:
+
+    <EMPTY>
+
+Reproduce with:
+
+    curl -X DELETE --insecure https://localhost:7235/api/Transactions/null%2Cnull
+
+___________________________ GET /api/Categories/{id} ___________________________
+1. Test Case ID: 1JiQP6
+
+- Missing Content-Type header
+
+    The following media types are documented in the schema:
+    - `text/plain`
+    - `application/json`
+    - `text/json`
+
+[404] Not Found:
+
+    <EMPTY>
+
+Reproduce with:
+
+    curl -X GET --insecure https://localhost:7235/api/Categories/null%2Cnull
+
+2. Test Case ID: kfVkPF
+
+- Undocumented Content-Type
+
+    Received: application/problem+json; charset=utf-8
+    Documented: text/plain, application/json, text/json
+
+[404] Not Found:
+
+    `{"title":"Category not found","status":404,"detail":"No category with id 3212."}`
+
+Reproduce with:
+
+    curl -X GET --insecure https://localhost:7235/api/Categories/3212
+
+__________________________ GET /api/Transactions/{id} __________________________
+1. Test Case ID: 2exB1E
+
+- Missing Content-Type header
+
+    The following media types are documented in the schema:
+    - `text/plain`
+    - `application/json`
+    - `text/json`
+
+[404] Not Found:
+
+    <EMPTY>
+
+Reproduce with:
+
+    curl -X GET --insecure https://localhost:7235/api/Transactions/null%2Cnull
+
+2. Test Case ID: qGNvy7
+
+- Undocumented Content-Type
+
+    Received: application/problem+json; charset=utf-8
+    Documented: text/plain, application/json, text/json
+
+[404] Not Found:
+
+    `{"title":"Transaction not found","status":404,"detail":"No transaction with id 3212."}`
+
+Reproduce with:
+
+    curl -X GET --insecure https://localhost:7235/api/Transactions/3212
+
+_____________________________ POST /api/Categories _____________________________
+1. Test Case ID: kitgJC
+
+- Undocumented Content-Type
+
+    Received: application/problem+json; charset=utf-8
+    Documented: text/plain, application/json, text/json
+
+[400] Bad Request:
+
+    `{"type":"https://tools.ietf.org/html/rfc9110#section-15.5.1","title":"One or more validation errors occurred.","status":400,"errors":{"request":["The request field is required."],"$.type":["The JSON value could not be converted to Finance.Business.Dtos.Categories.CategoryCreateRequest. Path: $.type | LineNumber: 0 | BytePositionInLine: 22."]},"traceId":"00-9d29cec705f59e7b6b6c36a8ff2f46f0-6a99f1c10a926f40-00"}`
+
+Reproduce with:
+
+    curl -X POST -H 'Content-Type: application/*+json' -d '{"name": "", "type": {}}' --insecure https://localhost:7235/api/Categories
+
+2. Test Case ID: dLYnYI
+
+- API rejected schema-compliant request
+
+    Valid data should have been accepted
+    Expected: 2xx, 401, 403, 404, 409, 5xx
+
+[400] Bad Request:
+
+    `{"title":"One or more validation errors occurred.","status":400,"errors":{"name":["Name is required."]}}`
+
+Reproduce with:
+
+    curl -X POST -H 'Content-Type: application/json' -d '{"name": "", "type": "Both"}' --insecure https://localhost:7235/api/Categories
+
+______________________________ POST /api/Reports _______________________________
+1. Test Case ID: f5q2qo
+
+- Undocumented Content-Type
+
+    Received: application/problem+json; charset=utf-8
+    Documented: text/plain, application/json, text/json
+
+[400] Bad Request:
+
+    `{"type":"https://tools.ietf.org/html/rfc9110#section-15.5.1","title":"One or more validation errors occurred.","status":400,"errors":{"request":["The request field is required."],"$.type":["The JSON value could not be converted to Finance.Business.Dtos.Reports.ReportRequest. Path: $.type | LineNumber: 0 | BytePositionInLine: 10."]},"traceId":"00-802e7cb3dc31fee80d8986c95f8c1357-f079623370d856cb-00"}`
+
+Reproduce with:
+
+    curl -X POST -H 'Content-Type: application/*+json' -d '{"type": {}, "data": null}' --insecure https://localhost:7235/api/Reports
+
+2. Test Case ID: 4nFcC9
+
+- API rejected schema-compliant request
+
+    Valid data should have been accepted
+    Expected: 2xx, 401, 403, 404, 409, 5xx
+
+[400] Bad Request:
+
+    `{"title":"One or more validation errors occurred.","status":400,"errors":{"data":["Period report data payload is required."]}}`
+
+Reproduce with:
+
+    curl -X POST -H 'Content-Type: application/json' -d '{"data": null, "type": "Period"}' --insecure https://localhost:7235/api/Reports
+
+____________________________ POST /api/Transactions ____________________________
+1. Test Case ID: kjUNaq
+
+- Undocumented Content-Type
+
+    Received: application/problem+json; charset=utf-8
+    Documented: text/plain, application/json, text/json
+
+[400] Bad Request:
+
+    `{"type":"https://tools.ietf.org/html/rfc9110#section-15.5.1","title":"One or more validation errors occurred.","status":400,"errors":{"request":["The request field is required."],"$.categoryIds[0]":["The JSON value could not be converted to System.Int32. Path: $.categoryIds[0] | LineNumber: 0 | BytePositionInLine: 118."]},"traceId":"00-d4e91d179760098306b3f127693e56ac-b6e6251fed520d97-00"}`
+
+Reproduce with:
+
+    curl -X POST -H 'Content-Type: application/*+json' -d '{"timestamp": "2000-01-01T00:00:00Z", "description": "", "amount": "0", "transactionType": "Income", "categoryIds": [{}]}' --insecure https://localhost:7235/api/Transactions
+
+2. Test Case ID: G5f1Of
+
+- API rejected schema-compliant request
+
+    Valid data should have been accepted
+    Expected: 2xx, 401, 403, 404, 409, 5xx
+
+[400] Bad Request:
+
+    `{"title":"One or more validation errors occurred.","status":400,"errors":{"amount":["Amount must be greater than zero."],"description":["Description is required."],"categoryIds":["At least one category id is required."]}}`
+
+Reproduce with:
+
+    curl -X POST -H 'Content-Type: application/json' -d '{"amount": 0.0, "categoryIds": [], "description": "", "timestamp": "2000-01-01T00:00:00Z", "transactionType": "Income"}' --insecure https://localhost:7235/api/Transactions
+
+________________________________ Stateful tests ________________________________
+1. Test Case ID: 5mo1gu
+
+- Undocumented Content-Type
+
+    Received: application/problem+json; charset=utf-8
+    Documented: text/plain, application/json, text/json
+
+[404] Not Found:
+
+    `{"title":"Transaction not found","status":404,"detail":"No transaction with id 898."}`
+
+Reproduce with:
+
+    curl -X GET --insecure https://localhost:7235/api/Transactions
+    curl -X DELETE --insecure https://localhost:7235/api/Transactions/898
+
+=================================== SUMMARY ====================================
+
+API Operations:
+  Selected: 9/9
+  Tested: 9
+
+Test Phases:
+  ⏭  Examples
+  ❌ Coverage
+  ❌ Fuzzing
+  ❌ Stateful
+
+Failures:
+  ❌ API rejected schema-compliant request: 3
+  ❌ Missing Content-Type header: 3
+  ❌ Undocumented Content-Type: 6
+
+Test cases:
+  1577 generated, 12 found 12 unique failures, 3 skipped
+
+Reports:
+  - JUNIT: C:\Projects\Currys\finance-tracker-api\.sdlc-cgen\sessions\manual-20260623-r3\api-validation\junit.xml
+  - HAR: C:\Projects\Currys\finance-tracker-api\.sdlc-cgen\sessions\manual-20260623-r3\api-validation\cassette.har
+
+Seed: 480861425225917472229855865920144756
+
+============================ 12 failures in 34.32s =============================

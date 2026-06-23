@@ -19,6 +19,8 @@ public sealed class TransactionsController(
         Ok(transactions.GetAll());
 
     [HttpGet("{id:int}")]
+    [ProducesResponseType<TransactionResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public ActionResult<TransactionResponse> GetById(int id)
     {
         var response = transactions.GetById(id);
@@ -35,6 +37,8 @@ public sealed class TransactionsController(
     }
 
     [HttpPost]
+    [ProducesResponseType<TransactionResponse>(StatusCodes.Status201Created)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     public ActionResult<TransactionResponse> Create([FromBody] TransactionCreateRequest request)
     {
         var result = validator.ValidateForCreate(request);
@@ -82,6 +86,8 @@ public sealed class TransactionsController(
     }
 
     [HttpDelete("{id:int}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public IActionResult Delete(int id)
     {
         if (transactions.Delete(id))
